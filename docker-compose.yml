@@ -9,6 +9,7 @@ services:
       - PORT=3000
       - DATABASE_URL=postgres://poster:posteruika2026@db:5432/poster_penelitian
       - PUBLIC_BASE_URL=https://utility.uika-bogor.ac.id/poster
+      - BASE_PATH=/poster
       - TRUST_PROXY=true
       - CHROME_PATH=/usr/bin/chromium
     depends_on:

@@ -70,11 +70,13 @@ function getPrefix(req) {
 function requirePage(req, res, next) {
   if (req.user) return next();
   const p = getPrefix(req);
-  res.redirect(p + '/login.html?next=' + encodeURIComponent(req.originalUrl));
+  const target = (p && !req.originalUrl.startsWith(p)) ? (p + req.originalUrl) : req.originalUrl;
+  res.redirect(p + '/login.html?next=' + encodeURIComponent(target));
 }
 function requireAdminPage(req, res, next) {
   const p = getPrefix(req);
-  if (!req.user) return res.redirect(p + '/login.html?next=' + encodeURIComponent(req.originalUrl));
+  const target = (p && !req.originalUrl.startsWith(p)) ? (p + req.originalUrl) : req.originalUrl;
+  if (!req.user) return res.redirect(p + '/login.html?next=' + encodeURIComponent(target));
   if (req.user.peran !== 'admin') return res.redirect(p + '/');
   next();
 }

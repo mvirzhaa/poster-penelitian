@@ -4,7 +4,8 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtTgl = d => new Date(d).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-const BASE = document.querySelector('base')?.getAttribute('href')?.replace(/\/+$/, '') 
+const BASE = window.__BASE__ 
+  || document.querySelector('base')?.getAttribute('href')?.replace(/\/+$/, '') 
   || (location.pathname.startsWith('/poster') ? '/poster' : '');
 const u = path => BASE + (path.startsWith('/') ? path : '/' + path);
 
@@ -12,7 +13,11 @@ async function api(url, opt = {}) {
   const fullUrl = (url.startsWith('http') || (BASE && url.startsWith(BASE + '/'))) ? url : u(url);
   const r = await fetch(fullUrl, opt);
   let j = null; try { j = await r.json(); } catch {}
-  if (r.status === 401 && !url.includes('/api/login')) { location.href = u('/login.html?next=' + encodeURIComponent(location.pathname + location.search)); throw new Error('Sesi berakhir'); }
+  if (r.status === 401 && !url.includes('/api/login')) {
+    const nextUrl = (BASE && !location.pathname.startsWith(BASE)) ? u(location.pathname + location.search) : (location.pathname + location.search);
+    location.href = u('/login.html?next=' + encodeURIComponent(nextUrl));
+    throw new Error('Sesi berakhir');
+  }
   if (!r.ok) throw new Error(j?.error || 'Terjadi kesalahan (' + r.status + ')');
   return j;
 }

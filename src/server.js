@@ -53,7 +53,10 @@ function sendHtml(res, filename, req) {
   let html = fs.readFileSync(filePath, 'utf8');
   const prefix = (req ? (req.baseUrl || req.get('x-forwarded-prefix') || '') : '') || BASE_PATH;
   if (prefix) {
-    html = html.replace('<head>', `<head>\n<base href="${prefix}/">`);
+    const inject = `<base href="${prefix}/"><script>window.__BASE__='${prefix}';</script>`;
+    if (!html.includes('window.__BASE__')) {
+      html = html.replace('<head>', `<head>\n${inject}`);
+    }
   }
   res.type('html').send(html);
 }
