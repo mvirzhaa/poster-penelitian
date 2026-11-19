@@ -13,6 +13,7 @@ const A = require('./auth');
 const webhooks = require('./webhooks');
 const journey = require('./journey');
 const apiv1 = require('./apiv1');
+const sso = require('./sso');
 
 const { httpError } = A;
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -75,6 +76,7 @@ router.get('/sponsor.html', A.requirePage, (req, res) => sendHtml(res, 'sponsor.
 router.get('/admin.html', A.requireAdminPage, (req, res) => sendHtml(res, 'admin.html', req));
 
 A.routes(router, wrap);
+sso.routes(router, wrap);
 require('./admin')(router, wrap);
 router.get('/api/syarat-foto', A.requireLogin, (req, res) => res.json(SYARAT_FOTO));
 router.get('/api/tema', A.requireLogin, (req, res) => res.json(Object.entries(THEMES).map(([id, t]) => ({ id, ...t }))));

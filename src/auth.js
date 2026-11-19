@@ -145,4 +145,4 @@ function routes(app, wrap) {
   }));
 }
 
-module.exports = { hashSandi, cekSandi, sha, loadUser, requireLogin, requireAdmin, requirePage, requireAdminPage, sameOrigin, routes, httpError };
+module.exports = { hashSandi, cekSandi, sha, loadUser, requireLogin, requireAdmin, requirePage, requireAdminPage, sameOrigin, routes, httpError, buatSesi, getPrefix, parseCookies, setCookie };

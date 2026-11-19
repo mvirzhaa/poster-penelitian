@@ -12,6 +12,13 @@ services:
       - BASE_PATH=/poster
       - TRUST_PROXY=true
       - CHROME_PATH=/usr/bin/chromium
+      - SSO_BASE_URL=${SSO_BASE_URL:-https://eportal.uika-bogor.ac.id}
+      - SSO_CLIENT_ID=${SSO_CLIENT_ID:-}
+      - SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}
+      - SSO_APP_MODULE_ID=${SSO_APP_MODULE_ID:-}
+      - EPORTAL_FRONTEND_URL=${EPORTAL_FRONTEND_URL:-https://eportal.uika-bogor.ac.id}
+      - JOURNEY_API_URL=${JOURNEY_API_URL:-}
+      - JOURNEY_API_KEY=${JOURNEY_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

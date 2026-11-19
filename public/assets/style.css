@@ -67,6 +67,11 @@ textarea{min-height:110px;resize:vertical}
 .login .box{background:#fff;border-radius:18px;padding:30px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .login h1{margin:0 0 4px;font-size:22px;color:var(--pd)}.login p{margin:0 0 8px;color:var(--mut);font-size:14px}
 .login .btn{width:100%;justify-content:center;margin-top:18px;padding:12px}
+.login .sso-btn{background:#007a3d;border-color:#007a3d;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600;margin-top:16px;text-decoration:none}
+.login .sso-btn:hover{background:#005e2e;border-color:#005e2e;color:#fff}
+.login-divider{display:flex;align-items:center;text-align:center;margin:18px 0 12px;color:var(--mut);font-size:12px}
+.login-divider::before,.login-divider::after{content:'';flex:1;border-bottom:1px solid var(--line)}
+.login-divider span{padding:0 10px}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .toolbar input[type=search],.toolbar select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
 .toolbar input[type=search]{flex:1;min-width:200px}
