@@ -17,7 +17,7 @@ function posterUrls(base, slug) {
   };
 }
 
-const { bersihkanNama, bersihkanDaftar } = require('./nama');
+const { bersihkanNama, anggotaPeneliti } = require('./nama');
 
 // Bentuk data penelitian yang dikirim ke aplikasi lain (tanpa data internal seperti id pengguna).
 function ringkasData(r, base) {
@@ -29,11 +29,12 @@ function ringkasData(r, base) {
     institusi: r.institusi,
     unit: r.unit,
     prodi: r.prodi_id ? { kode: r.prodi_kode, nama: r.prodi_nama } : null,
-    peneliti: { nama: bersihkanNama(r.peneliti_nama), info: r.peneliti_info, anggota: bersihkanDaftar(r.anggota) },
-    pembimbing: [r.pembimbing1, r.pembimbing2].filter(Boolean).map(bersihkanNama),
-    pembimbing_detail: [[r.pembimbing1, r.pembimbing1_ref], [r.pembimbing2, r.pembimbing2_ref]].filter(([n]) => n)
-      .map(([n, ref]) => ({ nama: bersihkanNama(n), journey_slug: ref || null })),
-    ringkasan: r.ringkasan,
+    peneliti_utama: { nama: bersihkanNama(r.peneliti_nama) },
+    anggota_peneliti: anggotaPeneliti(r).map(a => ({ nama: bersihkanNama(a.nama), journey_slug: a.ref || null })),
+    abstrak: r.abstrak,
+    anggaran: r.anggaran,
+    sumber_anggaran: r.sumber_anggaran,
+    output_penelitian: r.output_penelitian || [],
     foto_peneliti: r.foto_peneliti ? `${base}/uploads/${r.foto_peneliti}` : null,
     foto: (r.foto || []).map(f => ({ url: `${base}/uploads/${f.file}`, keterangan: f.keterangan })),
     sponsor: (r.sponsor || []).map(x => ({ nama: x.nama, logo: `${base}/uploads/${x.file}`, posisi: x.posisi })),

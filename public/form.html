@@ -36,32 +36,26 @@
   </div>
 </fieldset>
 
-<fieldset><legend>2. Peneliti &amp; pembimbing</legend>
+<fieldset><legend>2. Peneliti</legend>
   <div class="row2">
-    <label>Nama peneliti *<input type="text" name="peneliti_nama" required maxlength="150"></label>
-    <label>NIM / NIP / jabatan <span class="h">(opsional)</span><input type="text" name="peneliti_info" maxlength="150"></label>
+    <label>Nama peneliti utama *<input type="text" name="peneliti_nama" required maxlength="150"></label>
   </div>
-  <label>Foto peneliti <span class="h">(wajah terlihat jelas; dipotong persegi/bulat otomatis)</span><input type="file" name="foto_peneliti" accept="image/*" data-pv="pvFoto" data-jenis="peneliti"></label><div class="hint" data-hint="peneliti"></div>
+  <label>Foto peneliti utama <span class="h">(wajah terlihat jelas; dipotong persegi/bulat otomatis)</span><input type="file" name="foto_peneliti" accept="image/*" data-pv="pvFoto" data-jenis="peneliti"></label><div class="hint" data-hint="peneliti"></div>
   <div class="pv" id="pvFoto"></div>
-  <label>Anggota tim lain <span class="h">(opsional, pisahkan dengan koma)</span><input type="text" name="anggota" maxlength="250"></label>
-  <p class="cnt" style="text-align:left;margin:12px 0 0">Ketik nama untuk mencari dosen di database <b>Journey</b> lalu pilih dari daftar. Pembimbing dari <b>luar UIKA</b> cukup diketik manual. Gelar (Prof, Dr, Ir, S.Kom, M.Kom, dst.) dihapus otomatis di poster.</p>
-  <div class="row2">
-    <label>Pembimbing 1<input type="text" name="pembimbing1" maxlength="150" list="dlDosen" autocomplete="off" data-pemb="1" placeholder="ketik nama dosen…"></label>
-    <label>Pembimbing 2 <span class="h">(opsional)</span><input type="text" name="pembimbing2" maxlength="150" list="dlDosen" autocomplete="off" data-pemb="2" placeholder="ketik nama dosen…"></label>
-  </div>
-  <input type="hidden" name="pembimbing1_ref"><input type="hidden" name="pembimbing2_ref">
-  <div class="hint" id="hintPemb1"></div><div class="hint" id="hintPemb2"></div>
+
+  <h3 style="margin:22px 0 4px;font-size:16px">Anggota peneliti <span class="h">(opsional, maksimal 5)</span></h3>
+  <p class="cnt" style="text-align:left;margin:0 0 10px">Dari <b>dalam kampus</b>: ketik nama lalu <b>pilih dari daftar</b> (data dosen Journey). Dari <b>luar UIKA</b>: cukup ketik nama sendiri. Gelar (Prof, Dr, Ir, S.Kom, M.Kom, dst.) dihapus otomatis di poster.</p>
+  <div id="anggotaList"></div>
+  <p><button type="button" class="btn sm" id="addAnggota">+ Tambah anggota peneliti</button> <span class="h" id="anggotaCnt"></span></p>
   <datalist id="dlDosen"></datalist>
 </fieldset>
 
-<fieldset><legend>3. Isi penelitian</legend>
-  <p class="cnt" style="text-align:left;margin-top:10px">Tulis ringkas, poster dibaca sekilas. Baris yang diawali “- ” menjadi poin. Teks yang terlalu panjang akan diperkecil otomatis.</p>
-  <label>Ringkasan singkat <span class="h">(untuk gambar “Bagikan”; maks ±340 karakter tampil)</span><textarea name="ringkasan" data-rec="340" style="min-height:80px"></textarea></label>
-  <label>Latar belakang<textarea name="latar_belakang" data-rec="600"></textarea></label>
-  <label>Tujuan<textarea name="tujuan" data-rec="400"></textarea></label>
-  <label>Metode<textarea name="metode" data-rec="600"></textarea></label>
-  <label>Hasil<textarea name="hasil" data-rec="700"></textarea></label>
-  <label>Kesimpulan<textarea name="kesimpulan" data-rec="450"></textarea></label>
+<fieldset><legend>3. Abstrak &amp; anggaran</legend>
+  <label>Abstrak penelitian <span class="h">(ditampilkan di poster; baris diawali “- ” menjadi poin; teks panjang diperkecil otomatis)</span><textarea name="abstrak" data-rec="1000" style="min-height:160px"></textarea></label>
+  <div class="row2">
+    <label>Anggaran penelitian <span class="h">(mis. Rp 25.000.000)</span><input type="text" name="anggaran" maxlength="80" placeholder="Rp 25.000.000"></label>
+    <label>Sumber anggaran <span class="h">(mis. Hibah Internal UIKA 2026)</span><input type="text" name="sumber_anggaran" maxlength="150"></label>
+  </div>
 </fieldset>
 
 <fieldset><legend>4. Foto produk / kegiatan penelitian</legend>
@@ -71,23 +65,22 @@
 </fieldset>
 
 <fieldset><legend>5. Penutup</legend>
-  <label>Daftar pustaka <span class="h">(singkat, satu rujukan per baris)</span><textarea name="pustaka" data-rec="600"></textarea></label>
-  <label>Ucapan terima kasih / pendanaan<textarea name="ucapan" data-rec="250" style="min-height:70px"></textarea></label>
+  <div class="outwrap"><b>Output penelitian</b> <span class="h">(centang semua yang berlaku)</span><div class="outs" id="outList"></div></div>
+  <label>Ucapan terima kasih <span class="h">(opsional)</span><textarea name="ucapan" data-rec="250" style="min-height:70px"></textarea></label>
   <label>Kontak <span class="h">(e-mail, telepon, media sosial)</span><textarea name="kontak" style="min-height:70px" maxlength="500"></textarea></label>
   <label>Tautan untuk kode QR <span class="h">(opsional; kosongkan agar QR mengarah ke halaman poster bila PUBLIC_BASE_URL diatur)</span><input type="text" name="url_qr" maxlength="500" placeholder="https://..."></label>
 </fieldset>
 
 <fieldset><legend>6. Logo sponsor <span style="font-weight:400;color:var(--mut)">(opsional)</span></legend>
-  <p class="cnt" style="text-align:left;margin-top:10px">Centang logo yang ingin tampil, lalu pilih posisinya: <b>kiri atas</b> (di header) atau <b>kanan bawah</b> (di bagian bawah). Posisi dapat diubah kapan saja lewat halaman edit ini. Maksimal 3 logo per posisi.</p>
+  <p class="cnt" style="text-align:left;margin-top:10px">Centang logo yang ingin tampil, lalu pilih posisinya: <b>kiri atas</b> (di header) atau <b>kanan bawah</b> (di bagian bawah). Posisi dapat diubah kapan saja lewat halaman edit ini. Maksimal 3 logo per posisi. Logo ditambah di <a href="sponsor.html" id="linkSponsor" target="_blank">Kelola logo sponsor</a>.</p>
   <input type="hidden" name="sponsor_form" value="1">
   <div class="spons-list" id="sponsorList"></div>
 </fieldset>
 
 <fieldset><legend>7. Warna poster</legend><div class="themes" id="themes"></div></fieldset>
 
-<div class="sticky"><span class="msg" id="msg"></span><a class="btn" id="btnBatal" href="./">Batal</a><button class="btn pri" id="save" type="submit">Simpan &amp; lihat poster</button></div>
+<div class="sticky"><span class="msg" id="msg"></span><a class="btn" id="btnBatal" href="index.html">Batal</a><button class="btn pri" id="save" type="submit">Simpan &amp; lihat poster</button></div>
 </form></div>
 <script src="assets/app.js"></script>
 <script src="assets/form.js"></script>
-<script>const b = $('#btnBatal'); if (b) b.href = u('/');</script>
 </body></html>

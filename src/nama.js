@@ -93,4 +93,12 @@ function bersihkanDaftar(raw) {
   return out.join(', ');
 }
 
-module.exports = { bersihkanNama, bersihkanDaftar };
+// Anggota peneliti tersimpan sebagai JSON [{nama, ref}] (ref = slug dosen Journey, kosong bila diketik manual)
+function anggotaPeneliti(r) {
+  let a = r && r.anggota_peneliti;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = []; } }
+  if (!Array.isArray(a)) return [];
+  return a.filter(x => x && String(x.nama || '').trim()).map(x => ({ nama: String(x.nama).trim(), ref: String(x.ref || '') }));
+}
+
+module.exports = { bersihkanNama, bersihkanDaftar, anggotaPeneliti };

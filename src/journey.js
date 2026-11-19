@@ -19,7 +19,8 @@ async function cariDosen(q, limit = 15) {
   return { aktif: true, data: j.data || [] };
 }
 
-const refs = r => [...new Set([r.pembimbing1_ref, r.pembimbing2_ref].filter(Boolean))];
+const { bersihkanNama, anggotaPeneliti } = require('./nama');
+const refs = r => [...new Set(anggotaPeneliti(r).map(a => a.ref).filter(Boolean))];
 
 async function simpanStatus(slug, status, pesan) {
   await pool.query('UPDATE penelitian SET journey_status=$2, journey_pesan=$3, journey_at=now() WHERE slug=$1', [slug, status, String(pesan || '').slice(0, 300)]).catch(() => {});
@@ -32,21 +33,20 @@ async function sinkron(r, renderRow, base) {
     const dosen = refs(r);
     if (!dosen.length) {
       await hapus(r.slug, true);
-      await simpanStatus(r.slug, 'tidak_terkait', 'Tidak ada pembimbing dari Journey (semua diketik manual).');
-      return { ok: true, status: 'tidak_terkait', pesan: 'Tidak ada pembimbing dari Journey, tidak dikirim.' };
+      await simpanStatus(r.slug, 'tidak_terkait', 'Tidak ada anggota peneliti dari Journey (semua diketik manual).');
+      return { ok: true, status: 'tidak_terkait', pesan: 'Tidak ada anggota peneliti dari Journey, tidak dikirim.' };
     }
     const out = await renderRow(r, 'share', 'png', null);
-    const { bersihkanNama, bersihkanDaftar } = require('./nama');
     const fd = new FormData();
     const set = (k, v) => fd.append(k, v == null ? '' : String(v));
     set('slug', r.slug); set('judul', r.judul); set('subjudul', r.subjudul); set('tahun', r.tahun);
-    set('peneliti', bersihkanNama(r.peneliti_nama)); set('anggota', bersihkanDaftar(r.anggota));
-    set('ringkasan', r.ringkasan);
+    set('peneliti', bersihkanNama(r.peneliti_nama)); set('anggota', anggotaPeneliti(r).map(a => bersihkanNama(a.nama)).join(', '));
+    set('ringkasan', r.abstrak);
     set('prodi', r.prodi_nama || '');
     set('halaman_url', `${base}/p/${r.slug}`);
     set('diperbarui', new Date(r.updated_at).toISOString());
     set('dosen', JSON.stringify(dosen));
-    set('pembimbing', JSON.stringify([r.pembimbing1, r.pembimbing2].filter(Boolean).map(bersihkanNama)));
+    set('anggota_peneliti', JSON.stringify(anggotaPeneliti(r).map(a => bersihkanNama(a.nama))));
     fd.append('poster', new Blob([fs.readFileSync(out.file)], { type: 'image/png' }), `${r.slug}-share.png`);
     const res = await fetch(`${URL_API}/integration/products`, { method: 'POST', headers: hdr(), body: fd, signal: AbortSignal.timeout(60000) });
     const j = await res.json().catch(() => ({}));

@@ -16,7 +16,7 @@ Authorization: Bearer pk_xxxxxxxxxxxxxxxx
 |---|---|
 | `GET /api/v1/prodi` | Daftar prodi dalam lingkup kunci |
 | `GET /api/v1/penelitian?q=&prodi=<kode>&sejak=<ISO>&page=1&limit=20` | Daftar penelitian (maks. 100/halaman). `sejak` = hanya yang diubah sejak waktu itu (cocok untuk sinkronisasi berkala) |
-| `GET /api/v1/penelitian/{slug}` | Detail lengkap: identitas, peneliti, pembimbing, foto, isi (latar belakang … kesimpulan), tautan poster |
+| `GET /api/v1/penelitian/{slug}` | Detail lengkap: identitas, peneliti utama, anggota peneliti, foto, isi (abstrak, anggaran, sumber anggaran, output penelitian), tautan poster |
 | `GET /api/v1/penelitian/{slug}/poster/{format}.{tipe}?dpi=&unduh=1` | **Mengunduh berkas poster** |
 
 `format`: `a2` (42×59,4 cm), `xbanner` (60×160 cm), `share` (1080×1350 px).
@@ -36,8 +36,8 @@ Contoh item pada daftar:
 {
   "slug": "AbC123xy",
   "judul": "…", "subjudul": "…", "tahun": "2026",
-  "peneliti": "Fitrah Fajar",
-  "pembimbing": ["Ahmad Syafiq", "Dewi Lestari"],
+  "peneliti": "Fitrah Fajar",   // peneliti utama
+  "anggota_peneliti": ["Ahmad Syafiq", "Dewi Lestari"],   // maks. 5, tanpa gelar
   "prodi": { "kode": "informatika", "nama": "Teknik Informatika" },
   "diperbarui": "2026-11-18T11:54:00.000Z",
   "halaman": "https://poster.contoh.go.id/p/AbC123xy",
@@ -123,16 +123,20 @@ Detail penelitian (`GET /api/v1/penelitian/:slug`) dan payload webhook memuat:
 `posisi` bernilai `kiri_atas` atau `kanan_bawah`. Logo UIKA di kanan atas selalu ada dan tidak termasuk daftar ini.
 
 
-## Pembimbing & Journey
+## Anggota peneliti & Journey
 
-Setiap data penelitian membawa `pembimbing` (daftar nama **tanpa gelar**) dan `pembimbing_detail`:
+Setiap data penelitian membawa `peneliti` (peneliti utama) dan `anggota_peneliti` (maksimal 5 nama **tanpa gelar**). Pada payload webhook, anggota disertai tautan Journey:
 
 ```json
-"pembimbing": ["Fitrah Satrya Fajar Kusumah", "Dewi Lestari"],
-"pembimbing_detail": [
+"peneliti_utama": "Fitrah Fajar",
+"anggota_peneliti": [
   { "nama": "Fitrah Satrya Fajar Kusumah", "journey_slug": "fitrah-satrya-gmail-com-2971" },
   { "nama": "Dewi Lestari", "journey_slug": null }
-]
+],
+"abstrak": "…", "anggaran": "Rp 25.000.000", "sumber_anggaran": "Hibah Internal UIKA",
+"output_penelitian": ["Scopus Q1", "Sinta 2"]
 ```
+
+Nilai `output_penelitian` yang valid: Scopus Q1–Q4, Sinta 1–4, Seminar Internasional, Seminar Nasional, Paten Sederhana, HKI, Buku, Teknologi Purwarupa, Kebijakan, Karya Monumental.
 
 `journey_slug` berisi slug dosen di Journey bila dipilih dari database Journey, `null` bila diketik manual (dosen luar).

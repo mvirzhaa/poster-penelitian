@@ -127,6 +127,13 @@ function routes(app, wrap) {
     res.json({ ok: true });
   }));
 
+  app.get('/logout', wrap(async (req, res) => {
+    const token = parseCookies(req).sid;
+    if (token) await pool.query('DELETE FROM sesi WHERE token=$1', [sha(token)]);
+    setCookie(res, '', 0);
+    res.redirect('https://eportal.uika-bogor.ac.id');
+  }));
+
   app.get('/api/me', (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'Belum login' });
     res.json(req.user);

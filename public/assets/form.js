@@ -113,7 +113,7 @@ async function init() {
     pr.forEach(x => $('#selProdi').insertAdjacentHTML('beforeend', `<option value="${x.id}">${esc(x.nama)}</option>`));
     $('#selProdi').required = true;
   }
-  if (!slug) { addRow(); await muatSponsor(); return; }
+  if (!slug) { addRow(); await muatOpsi(); await muatSponsor(); return; }
   $('#ttl').textContent = 'Edit data penelitian';
   const r = await api('/api/penelitian/' + slug).catch(e => { setMsg(e.message, 'err'); return null; });
   if (!r) return;
@@ -129,6 +129,8 @@ async function init() {
   };
   withDel('pvFoto', r.foto_peneliti, true); withDel('pvLogo', r.logo, false);
   sponsorTerpilih = Object.fromEntries((r.sponsor || []).map(x => [x.id, x.posisi]));
+  await muatOpsi(r.output_penelitian || []);
+  (r.anggota_peneliti || []).forEach(a => tambahAnggota(a.nama, a.ref));
   await muatSponsor();
   existing = r.foto; r.foto.forEach(addExisting);
   if (!r.foto.length) addRow(); else refreshAdd();
@@ -139,6 +141,7 @@ form.addEventListener('submit', async e => {
   e.preventDefault();
   if ($$('.hint[data-ok="0"]').length) { setMsg('Ada foto yang resolusinya terlalu kecil. Ganti dengan foto ukuran asli (lihat pesan merah).', 'err'); return; }
   const fd = new FormData(form);
+  fd.append('anggota_peneliti', JSON.stringify(dataAnggota()));
   fotos.querySelectorAll('.foto.baru').forEach(row => {
     const f = row.querySelector('input[type=file]').files[0];
     if (f) { fd.append('foto_kegiatan', f); fd.append('ket_baru', row.querySelector('input[type=text]').value); }
@@ -151,41 +154,72 @@ form.addEventListener('submit', async e => {
 });
 
 
-// ---------- Pembimbing: cari di Journey atau ketik manual ----------
+// ---------- Anggota peneliti (maks 5): dosen Journey atau diketik manual ----------
 const dlDosen = $('#dlDosen');
-let hasilDosen = [];           // hasil pencarian terakhir
-let journeyAktif = true;
+const dosenByNama = new Map();      // nama (persis seperti di daftar) -> slug Journey
+let journeyAktif = true, MAKS_ANGGOTA = 5;
 
-function hintPemb(no) {
-  const inp = form.elements['pembimbing' + no], ref = form.elements['pembimbing' + no + '_ref'], h = $('#hintPemb' + no);
-  if (!inp.value.trim()) { ref.value = ''; h.textContent = ''; h.removeAttribute('data-ok'); return; }
-  if (ref.value && inp.dataset.pilih === undefined) inp.dataset.pilih = inp.value.trim(); // tautan tersimpan saat edit
-  const cocok = hasilDosen.find(d => d.nama === inp.value.trim());
-  if (cocok) ref.value = cocok.slug;
-  else if (ref.value && inp.dataset.pilih !== inp.value.trim()) ref.value = ''; // teks diubah manual -> lepas dari Journey
-  if (ref.value) { h.textContent = `✓ Pembimbing ${no}: terhubung ke dosen Journey — produk ini tampil di profil dosen tersebut.`; h.style.color = '#15803d'; }
-  else { h.textContent = `Pembimbing ${no}: diketik manual (tidak terhubung ke Journey).`; h.style.color = ''; }
-  if (ref.value) inp.dataset.pilih = inp.value.trim();
+function hintAnggota(row) {
+  const inp = row.querySelector('input[type=text]'), ref = row.querySelector('input.ref'), h = row.querySelector('.hint');
+  const v = inp.value.trim();
+  if (!v) { ref.value = ''; h.textContent = ''; return; }
+  if (dosenByNama.has(v)) ref.value = dosenByNama.get(v);
+  else if (ref.value && row.dataset.pilih !== v) ref.value = '';   // teks diubah manual -> lepas dari Journey
+  if (ref.value) row.dataset.pilih = v;
+  h.textContent = ref.value ? '✓ Dosen Journey — produk ini tampil di profil dosen tersebut.' : 'Diketik manual (dosen luar / tidak terhubung ke Journey).';
+  h.style.color = ref.value ? '#15803d' : '';
 }
 
 let tmrDosen;
-document.querySelectorAll('input[data-pemb]').forEach(inp => {
+function tambahAnggota(nama = '', ref = '') {
+  const list = $('#anggotaList');
+  if (list.children.length >= MAKS_ANGGOTA) return;
+  const row = document.createElement('div');
+  row.className = 'agg';
+  row.innerHTML = `<div class="agg-in"><input type="text" maxlength="150" list="dlDosen" autocomplete="off" placeholder="ketik nama anggota peneliti…"><input type="hidden" class="ref"><button type="button" class="btn sm" title="Hapus">✕</button></div><div class="hint"></div>`;
+  const inp = row.querySelector('input[type=text]');
+  inp.value = nama; row.querySelector('.ref').value = ref; if (ref) row.dataset.pilih = nama;
   inp.addEventListener('input', () => {
-    clearTimeout(tmrDosen);
-    hintPemb(inp.dataset.pemb);
+    hintAnggota(row);
     const q = inp.value.trim();
+    clearTimeout(tmrDosen);
     if (q.length < 2 || !journeyAktif) return;
     tmrDosen = setTimeout(async () => {
       try {
         const r = await api('/api/dosen?q=' + encodeURIComponent(q));
         if (r.aktif === false) { journeyAktif = false; return; }
-        hasilDosen = r.data || [];
-        dlDosen.innerHTML = hasilDosen.map(d => `<option value="${esc(d.nama)}">${esc([d.jabatan, d.prodi].filter(Boolean).join(' · '))}</option>`).join('');
-        hintPemb(inp.dataset.pemb);
-      } catch { /* diabaikan: tetap bisa diketik manual */ }
+        for (const d of r.data || []) dosenByNama.set(d.nama, d.slug);
+        dlDosen.innerHTML = (r.data || []).map(d => `<option value="${esc(d.nama)}">${esc([d.jabatan, d.prodi].filter(Boolean).join(' · '))}</option>`).join('');
+        hintAnggota(row);
+      } catch { /* tetap bisa diketik manual */ }
     }, 250);
   });
-  inp.addEventListener('change', () => hintPemb(inp.dataset.pemb));
-});
-// saat mengedit: tampilkan status tautan yang tersimpan
-setTimeout(() => { hintPemb(1); hintPemb(2); }, 800);
+  inp.addEventListener('change', () => hintAnggota(row));
+  row.querySelector('button').onclick = () => { row.remove(); sinkronCnt(); };
+  list.appendChild(row);
+  hintAnggota(row); sinkronCnt();
+}
+function sinkronCnt() {
+  const n = $('#anggotaList').children.length;
+  $('#anggotaCnt').textContent = `${n}/${MAKS_ANGGOTA}`;
+  $('#addAnggota').disabled = n >= MAKS_ANGGOTA;
+}
+$('#addAnggota').onclick = () => tambahAnggota();
+
+// dikumpulkan saat submit (dipanggil dari form.js bagian simpan)
+function dataAnggota() {
+  return [...document.querySelectorAll('#anggotaList .agg')].map(row => ({
+    nama: row.querySelector('input[type=text]').value.trim(), ref: row.querySelector('input.ref').value,
+  })).filter(a => a.nama);
+}
+
+// ---------- Output penelitian (centang) ----------
+async function muatOpsi(terpilih = []) {
+  try {
+    const o = await api('/api/opsi');
+    MAKS_ANGGOTA = o.maks_anggota || 5;
+    $('#outList').innerHTML = o.output_penelitian.map(x =>
+      `<label class="chk"><input type="checkbox" name="output_penelitian" value="${esc(x)}"${terpilih.includes(x) ? ' checked' : ''}> ${esc(x)}</label>`).join('');
+    sinkronCnt();
+  } catch { /* diabaikan */ }
+}

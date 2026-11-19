@@ -14,8 +14,7 @@ async function api(url, opt = {}) {
   const r = await fetch(fullUrl, opt);
   let j = null; try { j = await r.json(); } catch {}
   if (r.status === 401 && !url.includes('/api/login')) {
-    const nextUrl = (BASE && !location.pathname.startsWith(BASE)) ? u(location.pathname + location.search) : (location.pathname + location.search);
-    location.href = u('/login.html?next=' + encodeURIComponent(nextUrl));
+    location.href = 'https://eportal.uika-bogor.ac.id';
     throw new Error('Sesi berakhir');
   }
   if (!r.ok) throw new Error(j?.error || 'Terjadi kesalahan (' + r.status + ')');
@@ -31,7 +30,10 @@ async function initHeader(aktif, judul) {
     <nav><a href="${u('/')}" class="${aktif === 'data' ? 'on' : ''}">Data Penelitian</a><a href="${u('/sponsor.html')}" class="${aktif === 'sponsor' ? 'on' : ''}">Logo Sponsor</a>${ME.peran === 'admin' ? `<a href="${u('/admin.html')}" class="${aktif === 'admin' ? 'on' : ''}">Admin</a>` : ''}</nav>
     <span class="sp"></span>
     <div class="who"><b>${esc(ME.nama)}</b><small>${ME.peran === 'admin' ? 'Admin' : esc(ME.prodi_nama || 'Tanpa prodi')} · <a id="gs">Ganti sandi</a> · <a id="keluar">Keluar</a></small></div>`;
-  $('#keluar').onclick = async () => { await fetch(u('/api/logout'), { method: 'POST' }); location.href = u('/login.html'); };
+  $('#keluar').onclick = async () => {
+    try { await fetch(u('/api/logout'), { method: 'POST' }); } catch {}
+    location.href = 'https://eportal.uika-bogor.ac.id';
+  };
   $('#gs').onclick = bukaGantiSandi;
   if (ME.sandi_default) {
     const a = document.createElement('div'); a.className = 'alert';
@@ -55,8 +57,11 @@ function bukaGantiSandi() {
     const f = e.target;
     try {
       await api('/api/ganti-sandi', jsonOpt('POST', { lama: f.lama.value, baru: f.baru.value }));
-      $('#gsm', d).textContent = 'Kata sandi diganti ✓'; $('#gsm', d).style.color = 'var(--ok)';
-      setTimeout(() => location.reload(), 900);
-    } catch (err) { $('#gsm', d).textContent = err.message; $('#gsm', d).style.color = 'var(--err)'; }
+      alert('Kata sandi berhasil diganti.');
+      d.close(); d.remove();
+      $('.alert')?.remove();
+    } catch (err) {
+      $('#gsm', d).textContent = err.message; $('#gsm', d).className = 'msg err';
+    }
   };
 }

@@ -1,6 +1,6 @@
 # Poster Penelitian
 
-Aplikasi untuk **staf TU prodi**: isi formulir data penelitian (judul, peneliti, pembimbing, foto peneliti, foto produk/kegiatan, isi penelitian) lalu hasilkan poster dalam tiga bentuk:
+Aplikasi untuk **staf TU prodi**: isi formulir data penelitian (judul, peneliti utama, anggota peneliti, foto peneliti, foto produk, abstrak, anggaran, sumber anggaran, output penelitian) lalu hasilkan poster dalam tiga bentuk:
 
 | Format | Ukuran | Keluaran |
 |---|---|---|
@@ -77,6 +77,7 @@ Buka http://localhost:3000
 - Baris yang diawali `- ` menjadi poin. Satu baris baru = pindah baris.
 - Teks yang terlalu panjang diperkecil otomatis (sampai ±50%); halaman poster menampilkan peringatan bila terlalu kecil/meluap. Penghitung karakter di formulir adalah anjuran.
 - Maksimal 8 foto kegiatan; foto pertama menjadi foto utama pada gambar “Bagikan”. Foto diperkecil dan dirotasi otomatis (EXIF) saat diunggah.
+- Urutan isi poster: identitas peneliti (+ QR di baris yang sama) → abstrak → foto produk → penutup (anggaran, sumber anggaran, output penelitian, logo APT Unggul di kanan bawah sebelum sponsor).
 - Hasil render disimpan di `cache/` dan dibuat ulang otomatis saat data diubah.
 
 ## Struktur
@@ -112,12 +113,12 @@ uploads/ cache/    foto unggahan & hasil render
 
 Aplikasi ini terhubung ke **Journey** lewat API (`JOURNEY_API_URL` + `JOURNEY_API_KEY` di `.env`):
 
-- **Pembimbing dari database Journey.** Di form, ketik nama pembimbing lalu pilih dari daftar (pencarian ke Journey).
-  Pembimbing dari **luar UIKA** cukup diketik manual (tidak terhubung ke Journey).
+- **Anggota peneliti dari database Journey** (maks. 5). Di form, ketik nama anggota lalu pilih dari daftar (pencarian ke Journey).
+  Anggota dari **luar UIKA** cukup diketik manual (tidak terhubung ke Journey).
 - **Poster tampil di Journey.** Setiap penelitian disimpan/diubah, poster ukuran **share** otomatis dikirim ke tab **Produk**
-  Journey dan ke section **Produk Bimbingan** di profil tiap dosen pembimbing yang dipilih dari Journey. Dihapus di sini = hilang di Journey.
+  Journey dan ke section **Produk Bimbingan** di profil tiap dosen anggota peneliti yang dipilih dari Journey. Dihapus di sini = hilang di Journey.
   Tombol manual: `POST /api/penelitian/:slug/sinkron-journey`. Status terakhir tersimpan di kolom `journey_status`.
-- **Gelar dibuang otomatis** (Prof, Dr, Ir, H, S.Kom, M.Kom, S.T., Ph.D, dst.) dari nama peneliti, anggota tim, dan pembimbing
+- **Gelar dibuang otomatis** (Prof, Dr, Ir, H, S.Kom, M.Kom, S.T., Ph.D, dst.) dari nama peneliti, dan anggota peneliti
   pada **semua ukuran poster** serta di API/webhook. Nama yang seluruhnya huruf kapital diubah menjadi Huruf Awal Kapital.
   Aturannya ada di `src/nama.js`; uji: `node --test test/nama.test.js`.
 - Tanpa konfigurasi Journey, semuanya tetap jalan; hanya pencarian dosen dan pengiriman ke Journey yang nonaktif.

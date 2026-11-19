@@ -26,10 +26,14 @@ const INTERNAL = `http://127.0.0.1:${PORT}`;
 const baseOf = req => PUBLIC_BASE || `${req.protocol}://${req.get('host')}`;
 const baseFallback = () => PUBLIC_BASE || INTERNAL;
 
-const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_info', 'anggota',
-  'pembimbing1', 'pembimbing2', 'pembimbing1_ref', 'pembimbing2_ref', 'ringkasan', 'latar_belakang', 'tujuan', 'metode', 'hasil', 'kesimpulan',
-  'pustaka', 'ucapan', 'kontak', 'url_qr', 'tema'];
-const MAX_LEN = { judul: 300, subjudul: 300, ringkasan: 1200, latar_belakang: 3000, tujuan: 2000, metode: 3000, hasil: 3000, kesimpulan: 2000, pustaka: 3000, ucapan: 1000, kontak: 500, url_qr: 500 };
+const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_info',
+  'abstrak', 'anggaran', 'sumber_anggaran', 'ucapan', 'kontak', 'url_qr', 'tema'];
+const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian'];   // disimpan sebagai JSONB
+const FIELDS = [...TEXT_FIELDS, ...JSON_FIELDS];
+const MAX_LEN = { judul: 300, subjudul: 300, abstrak: 2500, anggaran: 80, sumber_anggaran: 150, ucapan: 1000, kontak: 500, url_qr: 500 };
+const MAX_ANGGOTA = 5;
+const OUTPUT_PENELITIAN = ['Scopus Q1', 'Scopus Q2', 'Scopus Q3', 'Scopus Q4', 'Sinta 1', 'Sinta 2', 'Sinta 3', 'Sinta 4',
+  'Seminar Internasional', 'Seminar Nasional', 'Paten Sederhana', 'HKI', 'Buku', 'Teknologi Purwarupa', 'Kebijakan', 'Karya Monumental'];
 const MAX_FOTO = 8;
 
 // Syarat minimal resolusi foto (piksel) agar tidak pecah saat dicetak. Dipakai juga oleh formulir (/api/syarat-foto).
@@ -114,10 +118,15 @@ function readFields(body) {
   for (const [k, max] of Object.entries(MAX_LEN)) {
     if (out[k].length > max) throw httpError(400, `Isian "${k}" terlalu panjang (maks ${max} karakter).`);
   }
-  for (const k of ['pembimbing1_ref', 'pembimbing2_ref']) {
-    if (!/^[A-Za-z0-9_.-]{0,150}$/.test(out[k])) out[k] = '';
-    if (!out[k.replace('_ref', '')]) out[k] = ''; // nama dikosongkan -> tautan Journey ikut dikosongkan
-  }
+  // Anggota peneliti: JSON [{nama, ref}], maks 5; ref hanya untuk dosen yang dipilih dari Journey
+  let ang = body.anggota_peneliti;
+  if (typeof ang === 'string') { try { ang = JSON.parse(ang); } catch { throw httpError(400, 'Format anggota peneliti tidak valid.'); } }
+  ang = (Array.isArray(ang) ? ang : []).map(x => ({ nama: String(x?.nama || '').trim().slice(0, 150), ref: String(x?.ref || '').trim() }))
+    .filter(x => x.nama).map(x => ({ nama: x.nama, ref: /^[A-Za-z0-9_.-]{1,150}$/.test(x.ref) ? x.ref : '' }));
+  if (ang.length > MAX_ANGGOTA) throw httpError(400, `Anggota peneliti maksimal ${MAX_ANGGOTA} orang.`);
+  out.anggota_peneliti = JSON.stringify(ang);
+  const outp = [].concat(body.output_penelitian === undefined ? [] : body.output_penelitian).map(String);
+  out.output_penelitian = JSON.stringify(OUTPUT_PENELITIAN.filter(o => outp.includes(o))); // urutan baku, hanya nilai yang dikenal
   if (!out.judul) throw httpError(400, 'Judul penelitian wajib diisi.');
   if (!out.peneliti_nama) throw httpError(400, 'Nama peneliti wajib diisi.');
   if (!THEMES[out.tema]) out.tema = 'biru';
@@ -192,14 +201,14 @@ router.get('/api/penelitian', wrap(async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const { rows } = await pool.query(`
-    SELECT p.slug, p.judul, p.peneliti_nama, p.pembimbing1, p.pembimbing2, p.tema, p.updated_at, p.foto_peneliti,
+    SELECT p.slug, p.judul, p.peneliti_nama, p.anggota_peneliti, p.tema, p.updated_at, p.foto_peneliti,
       pr.nama AS prodi_nama, u.nama AS diubah_oleh_nama,
       (SELECT file FROM foto_penelitian f WHERE f.penelitian_id=p.id ORDER BY urutan,id LIMIT 1) AS foto_utama,
       (SELECT count(*)::int FROM foto_penelitian f WHERE f.penelitian_id=p.id) AS jml_foto,
       count(*) OVER() AS total
     FROM penelitian p LEFT JOIN prodi pr ON pr.id=p.prodi_id LEFT JOIN pengguna u ON u.id=COALESCE(p.diubah_oleh,p.dibuat_oleh)
     WHERE ($1::int IS NULL OR p.prodi_id=$1)
-      AND ($2='' OR p.judul ILIKE $3 OR p.peneliti_nama ILIKE $3 OR p.pembimbing1 ILIKE $3 OR p.pembimbing2 ILIKE $3)
+      AND ($2='' OR p.judul ILIKE $3 OR p.peneliti_nama ILIKE $3 OR p.anggota_peneliti::text ILIKE $3)
     ORDER BY p.updated_at DESC LIMIT $4 OFFSET $5`, [prodi, q, `%${q}%`, limit, (page - 1) * limit]);
   res.json({ total: rows[0] ? Number(rows[0].total) : 0, halaman: page, per_halaman: limit, data: rows.map(({ total, ...x }) => x) });
 }));
@@ -218,8 +227,8 @@ router.post('/api/penelitian', upload, wrap(async (req, res) => {
     if (fotoPeneliti) saved.push(fotoPeneliti);
     const logo = files.logo?.[0] ? await saveImage(files.logo[0], 'logo', { max: 1200, png: true }) : null;
     if (logo) saved.push(logo);
-    const cols = [...TEXT_FIELDS, 'slug', 'foto_peneliti', 'logo', 'prodi_id', 'dibuat_oleh', 'diubah_oleh'];
-    const vals = [...TEXT_FIELDS.map(k => f[k]), slug, fotoPeneliti, logo, prodiId, req.user.id, req.user.id];
+    const cols = [...FIELDS, 'slug', 'foto_peneliti', 'logo', 'prodi_id', 'dibuat_oleh', 'diubah_oleh'];
+    const vals = [...FIELDS.map(k => f[k]), slug, fotoPeneliti, logo, prodiId, req.user.id, req.user.id];
     await client.query('BEGIN');
     const ins = await client.query(
       `INSERT INTO penelitian (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING id`, vals);
@@ -262,10 +271,10 @@ router.put('/api/penelitian/:slug', upload, wrap(async (req, res) => {
     } else if (req.body.hapus_logo) { logo = null; oldToRemove.push(cur.logo); }
 
     await client.query('BEGIN');
-    const sets = [...TEXT_FIELDS, 'foto_peneliti', 'logo', 'prodi_id', 'diubah_oleh'];
+    const sets = [...FIELDS, 'foto_peneliti', 'logo', 'prodi_id', 'diubah_oleh'];
     await client.query(
       `UPDATE penelitian SET ${sets.map((k, i) => `${k}=$${i + 1}`).join(',')}, updated_at=now() WHERE id=$${sets.length + 1}`,
-      [...TEXT_FIELDS.map(k => f[k]), fotoPeneliti, logo, prodiId, req.user.id, cur.id]);
+      [...FIELDS.map(k => f[k]), fotoPeneliti, logo, prodiId, req.user.id, cur.id]);
 
     const hapus = new Set(arr(req.body.hapus_foto).map(Number));
     for (const ft of cur.foto) {
@@ -377,6 +386,9 @@ router.post('/api/penelitian/:slug/kirim', wrap(async (req, res) => {
   res.status(hasil.ok ? 200 : 502).json(hasil);
 }));
 
+// Opsi isian untuk form (output penelitian, batas anggota)
+router.get('/api/opsi', A.requireLogin, (req, res) => res.json({ output_penelitian: OUTPUT_PENELITIAN, maks_anggota: MAX_ANGGOTA }));
+
 // ---------- Integrasi Journey ----------
 // Cari dosen di database Journey untuk kolom pembimbing (pembimbing luar UIKA tetap boleh diketik manual).
 router.get('/api/dosen', A.requireLogin, wrap(async (req, res) => {
@@ -461,7 +473,7 @@ router.get('/p/:slug', wrap(async (req, res) => {
   }));
   const html = fs.readFileSync(path.join(ROOT, 'views', 'share.html'), 'utf8')
     .replaceAll('{{JUDUL}}', esc(r.judul))
-    .replaceAll('{{DESKRIPSI}}', esc(ringkas(r.ringkasan || r.hasil || r.tujuan || `${r.peneliti_nama}`, 200)))
+    .replaceAll('{{DESKRIPSI}}', esc(ringkas(r.abstrak || `${r.peneliti_nama}`, 200)))
     .replaceAll('{{PENELITI}}', esc(r.peneliti_nama))
     .replaceAll('{{SLUG}}', esc(r.slug))
     .replaceAll('{{VER}}', String(ver))

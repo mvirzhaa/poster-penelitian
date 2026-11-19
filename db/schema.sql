@@ -134,3 +134,18 @@ ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS pembimbing2_ref TEXT NOT NULL DE
 ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS journey_status  TEXT NOT NULL DEFAULT '';
 ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS journey_pesan   TEXT NOT NULL DEFAULT '';
 ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS journey_at      TIMESTAMPTZ;
+
+-- ===== Revisi isian: Peneliti Utama + Anggota Peneliti (maks 5), abstrak, anggaran, output =====
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS anggota_peneliti  JSONB NOT NULL DEFAULT '[]';   -- [{nama, ref}] ref = slug dosen Journey atau ''
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS abstrak           TEXT  NOT NULL DEFAULT '';
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS anggaran          TEXT  NOT NULL DEFAULT '';
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS sumber_anggaran   TEXT  NOT NULL DEFAULT '';
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS output_penelitian JSONB NOT NULL DEFAULT '[]';   -- ["Scopus Q1","Sinta 2",...]
+
+-- Data lama: pembimbing 1/2 menjadi anggota peneliti; ringkasan menjadi abstrak (hanya bila kolom baru masih kosong)
+UPDATE penelitian SET anggota_peneliti = (
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('nama', v.n, 'ref', v.r) ORDER BY v.o), '[]'::jsonb)
+  FROM (VALUES (1, pembimbing1, pembimbing1_ref), (2, pembimbing2, pembimbing2_ref)) AS v(o, n, r) WHERE v.n <> '')
+WHERE anggota_peneliti = '[]'::jsonb AND (pembimbing1 <> '' OR pembimbing2 <> '');
+UPDATE penelitian SET abstrak = COALESCE(NULLIF(ringkasan, ''), NULLIF(latar_belakang, ''), '')
+WHERE abstrak = '' AND (ringkasan <> '' OR latar_belakang <> '');
