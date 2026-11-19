@@ -1,14 +1,45 @@
 const axios = require('axios');
+const https = require('https');
 const crypto = require('crypto');
 const { pool } = require('./db');
 const { buatSesi, getPrefix, parseCookies, hashSandi } = require('./auth');
 
-const RAW_SSO_URL = (process.env.SSO_BASE_URL || process.env.EPORTAL_URL || 'https://eportal.uika-bogor.ac.id').replace(/\/+$/, '');
+// Public frontend URL untuk redirect browser user
+const EPORTAL_FRONTEND_URL = (process.env.EPORTAL_FRONTEND_URL || 'https://eportal.uika-bogor.ac.id').replace(/\/+$/, '');
+
+// URL internal yang dipanggil oleh backend (bisa berupa IP, misal http://103.158.196.79 atau domain)
+const RAW_SSO_URL = (
+  process.env.SSO_INTERNAL_URL ||
+  process.env.SSO_BASE_URL ||
+  process.env.EPORTAL_URL ||
+  'https://eportal.uika-bogor.ac.id'
+).replace(/\/+$/, '');
+
 const SSO_API_URL = RAW_SSO_URL.endsWith('/api') ? RAW_SSO_URL : `${RAW_SSO_URL}/api`;
-const EPORTAL_FRONTEND_URL = (process.env.EPORTAL_FRONTEND_URL || RAW_SSO_URL.replace(/\/api$/, '')).replace(/\/+$/, '');
 const SSO_CLIENT_ID = process.env.SSO_CLIENT_ID || '';
 const SSO_CLIENT_SECRET = process.env.SSO_CLIENT_SECRET || '';
 const SSO_APP_MODULE_ID = process.env.SSO_APP_MODULE_ID || '';
+
+// Host header untuk Nginx vhost jika backend terhubung lewat IP address
+function getTargetHost() {
+  if (process.env.SSO_HOST) return process.env.SSO_HOST;
+  try {
+    const parsed = new URL(RAW_SSO_URL);
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(parsed.hostname)) {
+      return (new URL(EPORTAL_FRONTEND_URL)).host || 'eportal.uika-bogor.ac.id';
+    }
+    return parsed.host;
+  } catch {
+    return 'eportal.uika-bogor.ac.id';
+  }
+}
+const TARGET_HOST = getTargetHost();
+
+// Agent HTTPS yang fleksibel (mengizinkan koneksi via IP dengan SNI servername)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+  servername: TARGET_HOST,
+});
 
 /**
  * Mencari atau mendaftarkan prodi berdasarkan unit dari SSO.
@@ -126,15 +157,27 @@ async function syncSsoUser(ssoUser, ssoAccess) {
 async function introspectToken(token, appModuleId) {
   const modId = appModuleId || SSO_APP_MODULE_ID;
   const url = `${SSO_API_URL}/sso/introspect${modId ? `?appModule_id=${encodeURIComponent(modId)}` : ''}`;
+  
+  const headers = {
+    'X-SSO-Client-ID': SSO_CLIENT_ID,
+    'X-SSO-Client-Secret': SSO_CLIENT_SECRET,
+    'Authorization': `Bearer ${token}`,
+  };
+
+  // Jika URL menggunakan IP address atau SSO_HOST ditentukan, kirim Host header
+  try {
+    const parsed = new URL(url);
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(parsed.hostname) || process.env.SSO_HOST) {
+      headers['Host'] = TARGET_HOST;
+    }
+  } catch (e) {}
+
   const res = await axios.post(
     url,
     {},
     {
-      headers: {
-        'X-SSO-Client-ID': SSO_CLIENT_ID,
-        'X-SSO-Client-Secret': SSO_CLIENT_SECRET,
-        'Authorization': `Bearer ${token}`,
-      },
+      headers,
+      httpsAgent,
       timeout: 10000,
     }
   );
