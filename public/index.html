@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Penelitian</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="wrap">
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="Cari judul, peneliti, atau pembimbing…">
+    <select id="prodi" hidden><option value="">Semua prodi</option></select>
+    <a class="btn pri" id="btnBaru" href="form.html">+ Penelitian baru</a>
+  </div>
+  <div id="out"></div>
+  <div class="pg" id="pg"></div>
+</div>
+<script src="assets/app.js"></script>
+<script>
+let page = 1, timer;
+async function muat() {
+  const p = new URLSearchParams({ page, limit: 12, q: $('#q').value.trim() });
+  if (!$('#prodi').hidden && $('#prodi').value) p.set('prodi', $('#prodi').value);
+  const r = await api('/api/penelitian?' + p);
+  const admin = ME.peran === 'admin';
+  if (!r.data.length) {
+    $('#out').innerHTML = `<div class="empty"><p><b>${$('#q').value ? 'Tidak ada data yang cocok.' : 'Belum ada data penelitian.'}</b></p>${$('#q').value ? '' : '<p>Klik “+ Penelitian baru”, isi formulir, lalu unduh posternya.</p>'}</div>`;
+    $('#pg').innerHTML = ''; return;
+  }
+  $('#out').innerHTML = `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th class="hide-m"></th><th>Penelitian</th>${admin ? '<th class="hide-m">Prodi</th>' : ''}<th class="hide-m">Pembimbing</th><th class="hide-m">Diubah</th><th></th></tr></thead><tbody>` +
+    r.data.map(x => { const img = x.foto_utama || x.foto_peneliti;
+      return `<tr><td class="hide-m"><span class="thumb" style="${img ? `background-image:url(${u('/uploads/' + esc(img))})` : ''}"></span></td>
+      <td><a class="jd" href="${u('/p/' + x.slug)}">${esc(x.judul)}</a><div class="sub">${esc(x.peneliti_nama)} · ${x.jml_foto} foto</div></td>
+      ${admin ? `<td class="hide-m"><span class="chip">${esc(x.prodi_nama || '—')}</span></td>` : ''}
+      <td class="hide-m sub">${esc([x.pembimbing1, x.pembimbing2].filter(Boolean).join(', ') || '—')}</td>
+      <td class="hide-m sub">${fmtTgl(x.updated_at)}${x.diubah_oleh_nama ? `<br>oleh ${esc(x.diubah_oleh_nama)}` : ''}</td>
+      <td class="act"><a class="btn pri sm" href="${u('/p/' + x.slug)}">Poster</a><a class="btn sm" href="${u('/form.html?slug=' + x.slug)}">Edit</a><button class="btn danger sm" data-del="${x.slug}" data-j="${esc(x.judul)}">Hapus</button></td></tr>`; }).join('') + '</tbody></table></div>';
+  $$('[data-del]').forEach(b => b.onclick = () => konfirmasiHapus(b.dataset.del, b.dataset.j));
+  const hal = Math.ceil(r.total / r.per_halaman);
+  $('#pg').innerHTML = hal > 1 ? `<button class="btn sm" ${page <= 1 ? 'disabled' : ''} id="prev">← Sebelumnya</button><span>Halaman ${page} dari ${hal} · ${r.total} data</span><button class="btn sm" ${page >= hal ? 'disabled' : ''} id="next">Berikutnya →</button>` : `<span>${r.total} data</span>`;
+  if (hal > 1) { $('#prev').onclick = () => { page--; muat(); }; $('#next').onclick = () => { page++; muat(); }; }
+}
+function konfirmasiHapus(slug, judul) {
+  const d = document.createElement('dialog');
+  d.innerHTML = `<h3>Hapus data penelitian?</h3><p style="margin:0;color:var(--mut)">“${esc(judul)}” beserta semua fotonya akan dihapus permanen dan tidak dapat dikembalikan.</p><p class="msg" id="em" style="color:var(--err);font-size:13px;margin:8px 0 0"></p>
+    <div class="row"><button class="btn" id="bt">Batal</button><button class="btn danger" id="by">Ya, hapus</button></div>`;
+  document.body.appendChild(d); d.showModal();
+  $('#bt', d).onclick = () => { d.close(); d.remove(); };
+  $('#by', d).onclick = async () => {
+    try { await api('/api/penelitian/' + slug, { method: 'DELETE' }); d.close(); d.remove(); muat(); }
+    catch (e) { $('#em', d).textContent = e.message; }
+  };
+}
+(async () => {
+  await initHeader('data', 'Poster Penelitian');
+  const btnBaru = $('#btnBaru'); if (btnBaru) btnBaru.href = u('/form.html');
+  if (ME.peran === 'admin') {
+    const pr = await api('/api/prodi'); const s = $('#prodi'); s.hidden = false;
+    pr.forEach(x => s.insertAdjacentHTML('beforeend', `<option value="${x.id}">${esc(x.nama)}</option>`));
+    s.onchange = () => { page = 1; muat(); };
+  }
+  $('#q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 1; muat(); }, 300); };
+  muat();
+})();
+</script></body></html>

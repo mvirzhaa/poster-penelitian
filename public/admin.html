@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin · Poster Penelitian</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="wrap">
+  <div class="tabs2" id="tabs"></div>
+  <div id="v"></div>
+</div>
+<script src="assets/app.js"></script>
+<script>
+const TABS = [['pengguna', 'Pengguna'], ['prodi', 'Prodi'], ['kunci', 'Kunci API'], ['webhook', 'Webhook & log']];
+let prodi = [], tab = location.hash.slice(1) || 'pengguna';
+const opsiProdi = (sel, semua) => (semua ? `<option value="">${semua}</option>` : '') + prodi.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${esc(p.nama)}</option>`).join('');
+const J = (m, b) => jsonOpt(m, b);
+
+function modal(judul, isi, oke, onOk) {
+  const d = document.createElement('dialog');
+  d.innerHTML = `<form method="dialog"><h3>${judul}</h3>${isi}<p class="err" style="color:var(--err);font-size:13px;margin:8px 0 0"></p><div class="row"><button type="button" class="btn" data-x>Batal</button><button class="btn pri">${oke}</button></div></form>`;
+  document.body.appendChild(d); d.showModal();
+  const tutup = () => { d.close(); d.remove(); };
+  $('[data-x]', d).onclick = tutup;
+  $('form', d).onsubmit = async e => { e.preventDefault(); try { await onOk($('form', d)); tutup(); } catch (err) { $('.err', d).textContent = err.message; } };
+}
+function info(judul, isi) {
+  const d = document.createElement('dialog');
+  d.innerHTML = `<h3>${judul}</h3>${isi}<div class="row"><button class="btn pri" data-x>Tutup</button></div>`;
+  document.body.appendChild(d); d.showModal(); $('[data-x]', d).onclick = () => { d.close(); d.remove(); };
+}
+const konfirm = (teks, onYa) => modal('Konfirmasi', `<p style="margin:0">${teks}</p>`, 'Ya, lanjutkan', async () => onYa());
+
+// ---------- Pengguna ----------
+async function vPengguna() {
+  const rows = await api('/api/admin/pengguna');
+  $('#v').innerHTML = `
+  <div class="panel"><h3>Tambah akun</h3><form id="fp" class="inline">
+    <label>Nama pengguna<input type="text" name="username" required placeholder="tu.manajemen"></label>
+    <label>Nama lengkap<input type="text" name="nama" required></label>
+    <label>Peran<select name="peran" id="peran"><option value="tu">Staf TU prodi</option><option value="admin">Admin</option></select></label>
+    <label>Prodi<select name="prodi_id" id="pr">${opsiProdi('', '— pilih —')}</select></label>
+    <label>Kata sandi awal <span class="h">(kosong = acak)</span><input type="text" name="sandi" placeholder="min. 8 karakter"></label>
+    <button class="btn pri">Tambah</button></form></div>
+  <table class="tbl"><thead><tr><th>Pengguna</th><th>Peran</th><th>Prodi</th><th class="hide-m">Data</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(u => `
+    <tr><td><b>${esc(u.username)}</b><div class="sub">${esc(u.nama)}</div></td>
+    <td><span class="chip ${u.peran === 'admin' ? 'warn' : ''}">${u.peran === 'admin' ? 'Admin' : 'Staf TU'}</span></td>
+    <td>${esc(u.prodi_nama || '—')}</td><td class="hide-m">${u.jml_data}</td>
+    <td><span class="chip ${u.aktif ? 'ok' : 'off'}">${u.aktif ? 'Aktif' : 'Nonaktif'}</span>${u.sandi_default ? ' <span class="chip warn" title="Belum mengganti kata sandi awal">sandi awal</span>' : ''}</td>
+    <td class="act"><button class="btn sm" data-e="${u.id}">Edit</button><button class="btn sm" data-r="${u.id}">Reset sandi</button><button class="btn sm danger" data-d="${u.id}" data-n="${esc(u.username)}">Hapus</button></td></tr>`).join('')}</tbody></table>`;
+  $('#peran').onchange = e => { $('#pr').disabled = e.target.value === 'admin'; }; 
+  $('#fp').onsubmit = async e => {
+    e.preventDefault(); const f = e.target;
+    try {
+      const r = await api('/api/admin/pengguna', J('POST', { username: f.username.value, nama: f.nama.value, peran: f.peran.value, prodi_id: f.prodi_id.value, sandi: f.sandi.value }));
+      info('Akun dibuat', `<p>Nama pengguna: <b>${esc(r.username)}</b></p><p>Kata sandi awal (catat dan berikan ke yang bersangkutan; ia akan diminta menggantinya):</p><div class="secret">${esc(r.sandi_awal)}</div>`);
+      vPengguna();
+    } catch (err) { alert(err.message); }
+  };
+  $$('[data-e]').forEach(b => b.onclick = () => { const u = rows.find(x => x.id == b.dataset.e);
+    modal('Edit akun ' + esc(u.username), `<label>Nama lengkap<input type="text" name="nama" value="${esc(u.nama)}" required></label>
+      <label>Peran<select name="peran"><option value="tu" ${u.peran === 'tu' ? 'selected' : ''}>Staf TU prodi</option><option value="admin" ${u.peran === 'admin' ? 'selected' : ''}>Admin</option></select></label>
+      <label>Prodi<select name="prodi_id">${opsiProdi(u.prodi_id, '—')}</select></label>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="aktif" ${u.aktif ? 'checked' : ''}> Akun aktif</label>`, 'Simpan',
+      async f => { await api('/api/admin/pengguna/' + u.id, J('PUT', { nama: f.nama.value, peran: f.peran.value, prodi_id: f.prodi_id.value, aktif: f.aktif.checked })); vPengguna(); }); });
+  $$('[data-r]').forEach(b => b.onclick = () => konfirm('Reset kata sandi akun ini? Kata sandi baru dibuat acak dan sesi login akun itu diakhiri.', async () => {
+    const r = await api(`/api/admin/pengguna/${b.dataset.r}/reset-sandi`, J('POST', {}));
+    setTimeout(() => info('Kata sandi baru', `<div class="secret">${esc(r.sandi_baru)}</div>`), 50); vPengguna(); }));
+  $$('[data-d]').forEach(b => b.onclick = () => konfirm(`Hapus akun <b>${b.dataset.n}</b>? Data penelitian yang dibuatnya tetap ada.`, async () => { await api('/api/admin/pengguna/' + b.dataset.d, { method: 'DELETE' }); vPengguna(); }));
+}
+
+// ---------- Prodi ----------
+async function vProdi() {
+  prodi = await api('/api/prodi');
+  $('#v').innerHTML = `<div class="panel"><h3>Tambah prodi</h3><form id="fp" class="inline"><label>Kode<input type="text" name="kode" required placeholder="teknik-sipil"></label><label>Nama prodi<input type="text" name="nama" required></label><button class="btn pri">Tambah</button></form></div>
+  <table class="tbl"><thead><tr><th>Kode</th><th>Nama</th><th></th></tr></thead><tbody>${prodi.map(p => `<tr><td>${esc(p.kode)}</td><td>${esc(p.nama)}</td><td class="act"><button class="btn sm" data-e="${p.id}">Ubah nama</button><button class="btn sm danger" data-d="${p.id}">Hapus</button></td></tr>`).join('')}</tbody></table>`;
+  $('#fp').onsubmit = async e => { e.preventDefault(); const f = e.target; try { await api('/api/admin/prodi', J('POST', { kode: f.kode.value, nama: f.nama.value })); vProdi(); } catch (err) { alert(err.message); } };
+  $$('[data-e]').forEach(b => b.onclick = () => { const p = prodi.find(x => x.id == b.dataset.e); modal('Ubah nama prodi', `<label>Nama<input type="text" name="nama" value="${esc(p.nama)}" required></label>`, 'Simpan', async f => { await api('/api/admin/prodi/' + p.id, J('PUT', { nama: f.nama.value })); vProdi(); }); });
+  $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus prodi ini? (hanya bisa jika belum dipakai data atau akun)', async () => { await api('/api/admin/prodi/' + b.dataset.d, { method: 'DELETE' }); vProdi(); }));
+}
+
+// ---------- Kunci API ----------
+async function vKunci() {
+  const rows = await api('/api/admin/kunci');
+  $('#v').innerHTML = `<div class="note" style="margin-bottom:14px">Kunci API dipakai aplikasi lain untuk membaca data dan mengunduh poster lewat <code>/api/v1</code>. Gunakan header <code>Authorization: Bearer &lt;kunci&gt;</code>. Panduan lengkap: <b>API.md</b>.</div>
+  <div class="panel"><h3>Buat kunci baru</h3><form id="fk" class="inline"><label>Nama aplikasi<input type="text" name="nama" required placeholder="mis. Portal Kampus"></label><label>Lingkup<select name="prodi_id">${opsiProdi('', 'Semua prodi')}</select></label><button class="btn pri">Buat kunci</button></form></div>
+  <table class="tbl"><thead><tr><th>Nama</th><th>Awalan</th><th>Lingkup</th><th class="hide-m">Terakhir dipakai</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(k => `<tr><td><b>${esc(k.nama)}</b></td><td><code>${esc(k.prefiks)}…</code></td><td>${esc(k.prodi_nama || 'Semua prodi')}</td><td class="hide-m sub">${k.terakhir_dipakai ? fmtTgl(k.terakhir_dipakai) : 'belum pernah'}</td><td><span class="chip ${k.aktif ? 'ok' : 'off'}">${k.aktif ? 'Aktif' : 'Nonaktif'}</span></td><td class="act"><button class="btn sm" data-t="${k.id}" data-a="${k.aktif}">${k.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button><button class="btn sm danger" data-d="${k.id}">Hapus</button></td></tr>`).join('')}</tbody></table>`;
+  $('#fk').onsubmit = async e => { e.preventDefault(); const f = e.target; try { const r = await api('/api/admin/kunci', J('POST', { nama: f.nama.value, prodi_id: f.prodi_id.value })); info('Kunci API dibuat', `<p>Salin sekarang. Kunci lengkap <b>tidak akan ditampilkan lagi</b>.</p><div class="secret">${esc(r.kunci)}</div>`); vKunci(); } catch (err) { alert(err.message); } };
+  $$('[data-t]').forEach(b => b.onclick = async () => { await api('/api/admin/kunci/' + b.dataset.t, J('PUT', { aktif: b.dataset.a !== 'true' })); vKunci(); });
+  $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus kunci ini? Aplikasi yang memakainya akan ditolak.', async () => { await api('/api/admin/kunci/' + b.dataset.d, { method: 'DELETE' }); vKunci(); }));
+}
+
+// ---------- Webhook ----------
+async function vWebhook() {
+  const [rows, log] = await Promise.all([api('/api/admin/webhook'), api('/api/admin/webhook-log')]);
+  $('#v').innerHTML = `<div class="note" style="margin-bottom:14px">Webhook = alamat aplikasi lain yang <b>diberi tahu otomatis</b> saat data penelitian dibuat, diperbarui, atau dihapus (berisi tautan poster). Staf juga dapat <b>mengirim berkas poster</b> ke tujuan ini dari halaman poster. Setiap kiriman bertanda tangan HMAC-SHA256 memakai rahasia tujuan.</div>
+  <div class="panel"><h3>Tambah tujuan</h3><form id="fw" class="inline"><label>Nama<input type="text" name="nama" required placeholder="mis. Portal Kampus"></label><label>URL penerima<input type="text" name="url" required placeholder="https://aplikasi.contoh/hook"></label><label>Prodi<select name="prodi_id">${opsiProdi('', 'Semua prodi')}</select></label><label>Rahasia <span class="h">(kosong = acak)</span><input type="text" name="rahasia"></label><button class="btn pri">Tambah</button></form></div>
+  <table class="tbl"><thead><tr><th>Nama</th><th>URL</th><th>Rahasia</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(w => `<tr><td><b>${esc(w.nama)}</b><div class="sub">${esc(w.prodi_nama || 'Semua prodi')}</div></td><td class="sub" style="word-break:break-all">${esc(w.url)}</td><td><button class="btn sm" data-s="${esc(w.rahasia)}">Tampilkan</button></td><td><span class="chip ${w.aktif ? 'ok' : 'off'}">${w.aktif ? 'Aktif' : 'Nonaktif'}</span></td><td class="act"><button class="btn sm" data-p="${w.id}">Uji</button><button class="btn sm" data-t="${w.id}" data-a="${w.aktif}" data-n="${esc(w.nama)}" data-u="${esc(w.url)}" data-pr="${w.prodi_id || ''}">${w.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button><button class="btn sm danger" data-d="${w.id}">Hapus</button></td></tr>`).join('') || '<tr><td colspan="5" class="sub">Belum ada tujuan.</td></tr>'}</tbody></table>
+  <h3 style="margin:22px 0 8px;color:var(--pd)">Riwayat pengiriman terakhir</h3>
+  <table class="tbl"><thead><tr><th>Waktu</th><th>Tujuan</th><th>Peristiwa</th><th>Hasil</th></tr></thead><tbody>${log.map(l => `<tr><td class="sub">${fmtTgl(l.waktu)}</td><td>${esc(l.webhook_nama || '—')}</td><td>${esc(l.event)}${l.slug ? `<div class="sub">${esc(l.slug)}</div>` : ''}</td><td><span class="chip ${l.ok ? 'ok' : 'off'}">${l.ok ? 'Berhasil' : 'Gagal'}</span> <span class="sub">${esc(l.status || '')} ${l.ok ? '' : esc(l.detail || '')}</span></td></tr>`).join('') || '<tr><td colspan="4" class="sub">Belum ada.</td></tr>'}</tbody></table>`;
+  $('#fw').onsubmit = async e => { e.preventDefault(); const f = e.target; try { await api('/api/admin/webhook', J('POST', { nama: f.nama.value, url: f.url.value, prodi_id: f.prodi_id.value, rahasia: f.rahasia.value })); vWebhook(); } catch (err) { alert(err.message); } };
+  $$('[data-s]').forEach(b => b.onclick = () => info('Rahasia tanda tangan', `<div class="secret">${esc(b.dataset.s)}</div>`));
+  $$('[data-p]').forEach(b => b.onclick = async () => { b.textContent = '…'; const r = await api(`/api/admin/webhook/${b.dataset.p}/tes`, J('POST', {})); alert(r.ok ? 'Berhasil (HTTP ' + r.status + ')' : 'Gagal: ' + (r.detail || r.status)); vWebhook(); });
+  $$('[data-t]').forEach(b => b.onclick = async () => { await api('/api/admin/webhook/' + b.dataset.t, J('PUT', { nama: b.dataset.n, url: b.dataset.u, prodi_id: b.dataset.pr, aktif: b.dataset.a !== 'true' })); vWebhook(); });
+  $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus tujuan ini?', async () => { await api('/api/admin/webhook/' + b.dataset.d, { method: 'DELETE' }); vWebhook(); }));
+}
+
+const VIEWS = { pengguna: vPengguna, prodi: vProdi, kunci: vKunci, webhook: vWebhook };
+async function tampil(t) {
+  tab = VIEWS[t] ? t : 'pengguna'; location.hash = tab;
+  $('#tabs').innerHTML = TABS.map(([k, n]) => `<button data-k="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('');
+  $$('#tabs button').forEach(b => b.onclick = () => tampil(b.dataset.k));
+  await VIEWS[tab]();
+}
+(async () => { await initHeader('admin', 'Poster Penelitian · Admin'); prodi = await api('/api/prodi'); tampil(tab); })();
+</script></body></html>

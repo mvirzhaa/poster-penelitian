@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{JUDUL}}</title>
+<meta name="description" content="{{DESKRIPSI}}">
+<meta property="og:type" content="article"><meta property="og:title" content="{{JUDUL}}">
+<meta property="og:description" content="{{DESKRIPSI}}"><meta property="og:image" content="{{OG_IMAGE}}"><meta property="og:url" content="{{URL}}">
+<meta property="og:image:width" content="1080"><meta property="og:image:height" content="1350">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="{{BASE_PATH}}/assets/style.css">
+<style>
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;font:600 14px inherit;cursor:pointer}
+.tabs button.on{background:var(--pd);color:#fff;border-color:var(--pd)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.view{background:#e9edf5;border-radius:14px;padding:16px;display:flex;justify-content:center;align-items:flex-start;min-height:300px;position:relative}
+.view img{max-width:100%;max-height:78vh;box-shadow:0 8px 30px rgba(20,30,60,.25);background:#fff}
+.view .ld{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mut);font-weight:600;background:rgba(233,237,245,.85);border-radius:14px}
+.side{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.side h3{margin:0;font-size:15px}.side p{margin:0;font-size:13px;color:var(--mut)}
+.side .btn{justify-content:center;width:100%}
+.warn{background:#fff7e6;border:1px solid #f5c26b;color:#7a4b00;border-radius:10px;padding:10px 12px;font-size:13px}
+.sel{display:flex;gap:8px;align-items:center;font-size:13px}.sel select{width:auto;padding:6px 8px}
+@media(max-width:820px){.stage{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="bar"><h1>{{JUDUL}}</h1><span class="sp"></span><a class="btn sm" id="editLink" hidden href="{{BASE_PATH}}/form.html?slug={{SLUG}}">Edit data</a><a class="btn sm" id="daftarLink" hidden href="{{BASE_PATH}}/">Data penelitian</a></div>
+<div class="wrap">
+  <div class="tabs" id="tabs"></div>
+  <div class="stage">
+    <div class="view"><img id="img" alt="Pratinjau poster {{JUDUL}}"><div class="ld" id="ld">Membuat pratinjau…</div></div>
+    <div class="side">
+      <h3 id="fl"></h3><p id="fd"></p>
+      <div class="warn" id="warn" hidden></div>
+      <div class="kual" id="kual" hidden></div>
+      <div class="sel" id="selRow"><span>Resolusi</span><select id="dpi"></select></div>
+      <a class="btn pri" id="dlPng" download>Unduh PNG</a>
+      <a class="btn" id="dlJpg" download>Unduh JPG</a>
+      <a class="btn" id="dlPdf" download>Unduh PDF (cetak)</a>
+      <a class="btn" id="dlZip" download>Unduh semua ukuran (ZIP)</a>
+      <hr style="border:0;border-top:1px solid var(--line);width:100%">
+      <div id="kirimBox" hidden>
+        <h3>Kirim ke aplikasi lain</h3>
+        <div class="sel" style="margin-top:8px"><select id="kTujuan"></select></div>
+        <div class="sel" style="margin-top:8px"><select id="kFmt"><option value="a2:pdf">A2 · PDF</option><option value="a2:png">A2 · PNG</option><option value="xbanner:pdf">X-Banner · PDF</option><option value="xbanner:png">X-Banner · PNG</option><option value="share:png">Bagikan · PNG</option></select></div>
+        <button class="btn" id="kKirim" type="button" style="margin-top:8px">Kirim berkas</button>
+        <p id="kMsg" style="margin-top:6px"></p>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:12px 0 0">
+      </div>
+      <h3>Bagikan</h3>
+      <button class="btn" id="nat" type="button" hidden>Bagikan…</button>
+      <a class="btn" id="wa" target="_blank" rel="noopener">WhatsApp</a>
+      <button class="btn" id="cp" type="button">Salin tautan</button>
+    </div>
+  </div>
+</div>
+<script>
+const SLUG='{{SLUG}}',VER='{{VER}}',URLP='{{URL}}',JUDUL=document.title,F={{FORMATS}},BASE='{{BASE_PATH}}';
+const u=path=>BASE+(path.startsWith('/')?path:'/'+path);
+const ord=['share','a2','xbanner'],names={share:'Bagikan (media sosial / WA)',a2:'Poster A2',xbanner:'X-Banner'};
+const $=s=>document.querySelector(s);let cur='share',tok=0;
+const note={share:'Gambar 1080×1350 piksel (rasio 4:5) untuk WhatsApp, Instagram, dsb.',
+ a2:'42 × 59,4 cm. Untuk cetak, gunakan PDF (vektor) atau PNG 150–300 dpi.',
+ xbanner:'60 × 160 cm. 20 cm bagian bawah tertutup dudukan banner, sudah diberi ruang kosong. Gunakan PDF/PNG 100 dpi atau lebih.'};
+$('#tabs').innerHTML=ord.map(k=>`<button data-k="${k}">${names[k]}</button>`).join('');
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>show(b.dataset.k));
+const previewDpi=k=>k==='a2'?45:k==='xbanner'?35:null;
+function q(k,dpi){return dpi?`?dpi=${dpi}&v=${VER}`:`?v=${VER}`}
+async function show(k){
+  cur=k;const my=++tok;const f=F[k];
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  $('#fl').textContent=f.label;$('#fd').textContent=note[k];
+  // resolusi unduhan
+  const sel=$('#dpi'),row=$('#selRow');
+  if(f.mm){const opts=k==='a2'?[100,150,200,300]:[50,100,150];sel.innerHTML=opts.map(d=>{const w=Math.round(f.w*(d*f.mm[0]/25.4/f.w)),h=Math.round(w*f.h/f.w);return `<option value="${d}" ${d===f.dpi?'selected':''}>${d} dpi (${w}×${h})</option>`}).join('');row.hidden=false}else row.hidden=true;
+  links();
+  $('#dlPdf').hidden=!f.pdf;
+  $('#ld').hidden=false;$('#warn').hidden=true;$('#kual').hidden=true;
+  try{
+    const r=await fetch(u(`/img/${SLUG}/${k}.png`+q(k,previewDpi(k))));
+    if(!r.ok)throw 0;
+    const skala=parseFloat(r.headers.get('X-Teks-Skala')||'1'),over=r.headers.get('X-Teks-Meluap')==='1';
+    const kh=r.headers.get('X-Kualitas');if(kh&&my===tok)tampilKualitas(JSON.parse(decodeURIComponent(kh)),k);
+    const blob=await r.blob();if(my!==tok)return;
+    $('#img').src=URL.createObjectURL(blob);
+    const w=$('#warn');
+    if(over){w.textContent='Isi terlalu banyak: teks sudah diperkecil maksimal tetapi masih meluap. Persingkat teks pada formulir.';w.hidden=false}
+    else if(skala<0.8){w.textContent=`Teks diperkecil otomatis menjadi ${Math.round(skala*100)}% agar muat. Pertimbangkan memperpendek teks supaya mudah dibaca dari jauh.`;w.hidden=false}
+  }catch(e){if(my===tok)$('#warn').textContent='Gagal membuat pratinjau. Coba muat ulang halaman.',$('#warn').hidden=false}
+  if(my===tok)$('#ld').hidden=true;
+}
+function tampilKualitas(q,k){
+  const box=$('#kual'),a=q.ambang,nama={a2:'Poster A2',xbanner:'X-Banner'}[k];
+  if(!q.items.length){box.hidden=true;return}
+  const judul={baik:'Kualitas foto untuk cetak: Baik ✓',cukup:'Kualitas foto untuk cetak: Cukup ⚠',rendah:'Kualitas foto untuk cetak: Rendah ✗'}[q.status];
+  const bermasalah=q.items.filter(i=>i.status!=='baik');
+  box.className='kual '+q.status;
+  box.innerHTML=`<b>${judul}</b><div>${nama}: foto terendah ±${q.min_dpi} dpi (baik ≥ ${a.baik} dpi, layak ≥ ${a.cukup} dpi).</div>`+
+    (bermasalah.length?`<ul>${bermasalah.map(i=>`<li>${i.nama}: ±${i.dpi} dpi (${i.status})</li>`).join('')}</ul><div>Ganti dengan foto beresolusi lebih besar, atau kurangi jumlah foto agar tiap foto tampil lebih kecil.</div>`:'');
+  box.hidden=false;
+}
+function links(){
+  const d=F[cur].mm?`&dpi=${$('#dpi').value}`:'';
+  const base=u(`/img/${SLUG}/${cur}`);
+  $('#dlPng').href=`${base}.png?unduh=1${d}&v=${VER}`;
+  $('#dlJpg').href=`${base}.jpg?unduh=1${d}&v=${VER}`;
+  $('#dlPdf').href=`${base}.pdf?unduh=1&v=${VER}`;
+  $('#dlZip').href=u(`/img/${SLUG}/semua.zip`);
+  $('#dlPng').textContent=F[cur].mm?'Unduh PNG':'Unduh PNG (1080×1350)';
+}
+$('#dpi').onchange=links;
+$('#wa').href='https://wa.me/?text='+encodeURIComponent(JUDUL+'\n'+URLP);
+$('#cp').onclick=async()=>{try{await navigator.clipboard.writeText(URLP);$('#cp').textContent='Tersalin ✓'}catch{prompt('Salin tautan:',URLP)}setTimeout(()=>$('#cp').textContent='Salin tautan',1800)};
+if(navigator.share){const n=$('#nat');n.hidden=false;n.onclick=async()=>{
+  try{const r=await fetch(u(`/img/${SLUG}/share.jpg?v=${VER}`));const b=await r.blob();const file=new File([b],'poster.jpg',{type:'image/jpeg'});
+    if(navigator.canShare&&navigator.canShare({files:[file]}))await navigator.share({title:JUDUL,text:JUDUL,url:URLP,files:[file]});else await navigator.share({title:JUDUL,url:URLP})}catch(e){}}}
+show('share');
+// Tombol khusus staf (hanya tampil bila sudah login)
+fetch(u('/api/me')).then(r=>r.ok?r.json():null).then(async me=>{
+  if(!me)return;
+  $('#editLink').hidden=false;$('#daftarLink').hidden=false;
+  try{
+    const t=await (await fetch(u('/api/webhook-tujuan'))).json();
+    if(t.length){$('#kTujuan').innerHTML=t.map(x=>`<option value="${x.id}">${x.nama.replace(/</g,'&lt;')}</option>`).join('');$('#kirimBox').hidden=false}
+  }catch(e){}
+  $('#kKirim').onclick=async()=>{
+    const [format,tipe]=$('#kFmt').value.split(':'),m=$('#kMsg'),b=$('#kKirim');
+    b.disabled=true;m.textContent='Membuat dan mengirim… (poster besar bisa memakan waktu)';m.style.color='';
+    try{
+      const r=await fetch(u(`/api/penelitian/${SLUG}/kirim`),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({webhook_id:$('#kTujuan').value,format,tipe})});
+      const j=await r.json();
+      if(r.ok&&j.ok){m.textContent='Terkirim ke '+j.tujuan+' ✓';m.style.color='var(--ok)'}
+      else{m.textContent='Gagal: '+(j.error||j.detail||('HTTP '+j.status));m.style.color='var(--err)'}
+    }catch(e){m.textContent='Gagal mengirim';m.style.color='var(--err)'}
+    b.disabled=false;
+  };
+});
+</script></body></html>

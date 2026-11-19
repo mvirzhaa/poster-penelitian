@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logo Sponsor</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="wrap">
+  <div class="note" style="margin-bottom:14px">Pustaka logo sponsor. Logo yang ditambahkan di sini dapat dipilih pada formulir penelitian dan ditempatkan di <b>kiri atas</b> atau <b>kanan bawah</b> poster (posisi diatur per penelitian dan dapat diubah kapan saja saat mengedit).
+    Gunakan <b>PNG transparan atau latar putih, minimal 600 px</b> (disarankan ≥ 1000 px) agar tajam saat dicetak.</div>
+  <div class="panel"><h3>Tambah logo sponsor</h3>
+    <form id="f" class="inline">
+      <label>Nama sponsor<input type="text" name="nama" required maxlength="100" placeholder="mis. Bank Mandiri"></label>
+      <label>Berkas logo<input type="file" name="logo" accept="image/*" required></label>
+      <label id="lbScope" hidden>Milik<select name="prodi_id" id="scope"></select></label>
+      <button class="btn pri">Tambah</button>
+    </form>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="sgrid" id="grid"></div>
+</div>
+<script src="assets/app.js"></script>
+<script>
+let prodi = [];
+function modal(judul, isi, oke, onOk) {
+  const d = document.createElement('dialog');
+  d.innerHTML = `<form method="dialog"><h3>${judul}</h3>${isi}<p class="err" style="color:var(--err);font-size:13px;margin:8px 0 0"></p><div class="row"><button type="button" class="btn" data-x>Batal</button><button class="btn pri">${oke}</button></div></form>`;
+  document.body.appendChild(d); d.showModal();
+  const tutup = () => { d.close(); d.remove(); };
+  $('[data-x]', d).onclick = tutup;
+  $('form', d).onsubmit = async e => { e.preventDefault(); try { await onOk($('form', d)); tutup(); } catch (err) { $('.err', d).textContent = err.message; } };
+}
+async function muat() {
+  const list = await api('/api/sponsor');
+  $('#grid').innerHTML = list.map(x => `<div class="scard"><div class="pic"><img src="${u('/uploads/' + esc(x.file))}" alt=""></div>
+    <div class="bd"><b>${esc(x.nama)}</b><span class="chip ${x.prodi_id ? '' : 'warn'}">${esc(x.prodi_nama || 'Umum (semua prodi)')}</span><div class="sub" style="margin-top:6px">Dipakai di ${x.dipakai} poster</div></div>
+    <div class="act">${x.boleh_ubah ? `<button class="btn sm" data-e="${x.id}">Ubah</button><button class="btn sm danger" data-d="${x.id}" data-n="${esc(x.nama)}" data-u="${x.dipakai}">Hapus</button>` : '<span class="sub">Hanya admin yang dapat mengubah</span>'}</div></div>`).join('') || '<div class="empty" style="grid-column:1/-1">Belum ada logo sponsor.</div>';
+  $$('[data-e]').forEach(b => b.onclick = () => { const x = list.find(y => y.id == b.dataset.e);
+    modal('Ubah logo sponsor', `<label>Nama<input type="text" name="nama" value="${esc(x.nama)}" required></label><label>Ganti logo <span class="h">(opsional)</span><input type="file" name="logo" accept="image/*"></label><p class="sub">Poster yang memakai logo ini akan otomatis diperbarui.</p>`, 'Simpan',
+      async f => { const fd = new FormData(); fd.append('nama', f.nama.value); if (f.logo.files[0]) fd.append('logo', f.logo.files[0]); await api('/api/sponsor/' + x.id, { method: 'PUT', body: fd }); muat(); }); });
+  $$('[data-d]').forEach(b => b.onclick = () => modal('Hapus logo sponsor?', `<p style="margin:0">Logo <b>${esc(b.dataset.n)}</b> akan dihapus${+b.dataset.u ? ` dan dilepas dari ${b.dataset.u} poster` : ''}.</p>`, 'Ya, hapus',
+    async () => { await api('/api/sponsor/' + b.dataset.d, { method: 'DELETE' }); muat(); }));
+}
+$('#f').onsubmit = async e => {
+  e.preventDefault(); const f = e.target, h = $('#hint'); h.className = 'hint'; h.textContent = 'Mengunggah…';
+  const fd = new FormData(); fd.append('nama', f.nama.value); fd.append('logo', f.logo.files[0]);
+  if (ME.peran === 'admin') { if (f.prodi_id.value === 'umum') fd.append('umum', '1'); else fd.append('prodi_id', f.prodi_id.value); }
+  try { await api('/api/sponsor', { method: 'POST', body: fd }); f.reset(); h.className = 'hint ok'; h.textContent = 'Logo ditambahkan ✓'; muat(); }
+  catch (err) { h.className = 'hint bad'; h.textContent = err.message; }
+};
+(async () => {
+  await initHeader('sponsor', 'Poster Penelitian');
+  if (ME.peran === 'admin') {
+    prodi = await api('/api/prodi'); $('#lbScope').hidden = false;
+    $('#scope').innerHTML = '<option value="umum">Umum (semua prodi)</option>' + prodi.map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('');
+  }
+  muat();
+})();
+</script></body></html>

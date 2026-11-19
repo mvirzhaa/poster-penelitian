@@ -1,0 +1,27 @@
+{
+  "name": "poster-penelitian",
+  "version": "1.0.0",
+  "description": "Aplikasi pembuat poster penelitian (A2, X-Banner, bagikan) - Node.js + PostgreSQL",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node db/seed.js",
+    "test": "node --test test/nama.test.js"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "archiver": "^8.0.0",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "pg": "^8.23.1",
+    "puppeteer": "^25.18.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}
