@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    container_name: poster-app-1
+    restart: always
+    ports:
+      - "127.0.0.1:3005:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgres://poster:posteruika2026@db:5432/poster_penelitian
+      - PUBLIC_BASE_URL=https://utility.uika-bogor.ac.id/poster
+      - TRUST_PROXY=true
+      - CHROME_PATH=/usr/bin/chromium
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./cache:/app/cache
+
+  db:
+    image: postgres:16-alpine
+    container_name: poster-db-1
+    restart: always
+    environment:
+      - POSTGRES_USER=poster
+      - POSTGRES_PASSWORD=posteruika2026
+      - POSTGRES_DB=poster_penelitian
+    volumes:
+      - poster_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poster -d poster_penelitian"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  poster_data:
