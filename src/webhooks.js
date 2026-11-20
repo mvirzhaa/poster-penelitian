@@ -35,6 +35,7 @@ function ringkasData(r, base) {
     anggaran: r.anggaran,
     sumber_anggaran: r.sumber_anggaran,
     output_penelitian: r.output_penelitian || [],
+    tampil: require('./tampil').petaTampil(r.tampil),
     foto_peneliti: r.foto_peneliti ? `${base}/uploads/${r.foto_peneliti}` : null,
     foto: (r.foto || []).map(f => ({ url: `${base}/uploads/${f.file}`, keterangan: f.keterangan })),
     sponsor: (r.sponsor || []).map(x => ({ nama: x.nama, logo: `${base}/uploads/${x.file}`, posisi: x.posisi })),

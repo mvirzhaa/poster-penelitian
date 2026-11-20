@@ -71,13 +71,19 @@
   <label>Tautan untuk kode QR <span class="h">(opsional; kosongkan agar QR mengarah ke halaman poster bila PUBLIC_BASE_URL diatur)</span><input type="text" name="url_qr" maxlength="500" placeholder="https://..."></label>
 </fieldset>
 
-<fieldset><legend>6. Logo sponsor <span style="font-weight:400;color:var(--mut)">(opsional)</span></legend>
+<fieldset><legend>6. Elemen yang ditampilkan di poster</legend>
+  <p class="cnt" style="text-align:left;margin:10px 0">Hilangkan centang untuk menyembunyikan elemen dari poster, X-banner, dan halaman share. Judul dan logo UIKA selalu tampil.</p>
+  <input type="hidden" name="tampil_ada" value="1">
+  <div class="outs" id="tampilList"></div>
+</fieldset>
+
+<fieldset><legend>7. Logo sponsor <span style="font-weight:400;color:var(--mut)">(opsional)</span></legend>
   <p class="cnt" style="text-align:left;margin-top:10px">Centang logo yang ingin tampil, lalu pilih posisinya: <b>kiri atas</b> (di header) atau <b>kanan bawah</b> (di bagian bawah). Posisi dapat diubah kapan saja lewat halaman edit ini. Maksimal 3 logo per posisi. Logo ditambah di <a href="sponsor.html" id="linkSponsor" target="_blank">Kelola logo sponsor</a>.</p>
   <input type="hidden" name="sponsor_form" value="1">
   <div class="spons-list" id="sponsorList"></div>
 </fieldset>
 
-<fieldset><legend>7. Warna poster</legend><div class="themes" id="themes"></div></fieldset>
+<fieldset><legend>8. Warna poster</legend><div class="themes" id="themes"></div></fieldset>
 
 <div class="sticky"><span class="msg" id="msg"></span><a class="btn" id="btnBatal" href="index.html">Batal</a><button class="btn pri" id="save" type="submit">Simpan &amp; lihat poster</button></div>
 </form></div>

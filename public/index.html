@@ -16,8 +16,9 @@
 <script>
 let page = 1, timer;
 async function muat() {
-  const p = $('#prodi').value, q = $('#q').value.trim();
-  const r = await api(`/api/penelitian?page=${page}&q=${encodeURIComponent(q)}&prodi=${encodeURIComponent(p)}`);
+  const p = new URLSearchParams({ page, limit: 12, q: $('#q').value.trim() });
+  if (!$('#prodi').hidden && $('#prodi').value) p.set('prodi', $('#prodi').value);
+  const r = await api('/api/penelitian?' + p);
   const admin = ME.peran === 'admin';
   if (!r.data.length) {
     $('#out').innerHTML = `<div class="empty"><p><b>${$('#q').value ? 'Tidak ada data yang cocok.' : 'Belum ada data penelitian.'}</b></p>${$('#q').value ? '' : '<p>Klik “+ Penelitian baru”, isi formulir, lalu unduh posternya.</p>'}</div>`;
@@ -37,8 +38,15 @@ async function muat() {
   if (hal > 1) { $('#prev').onclick = () => { page--; muat(); }; $('#next').onclick = () => { page++; muat(); }; }
 }
 function konfirmasiHapus(slug, judul) {
-  if (!confirm(`Hapus data penelitian ini?\n\n"${judul}"\n\nPoster dan foto kegiatan akan dihapus permanen.`)) return;
-  api(`/api/penelitian/${slug}`, { method: 'DELETE' }).then(() => muat()).catch(e => alert(e.message));
+  const d = document.createElement('dialog');
+  d.innerHTML = `<h3>Hapus data penelitian?</h3><p style="margin:0;color:var(--mut)">“${esc(judul)}” beserta semua fotonya akan dihapus permanen dan tidak dapat dikembalikan.</p><p class="msg" id="em" style="color:var(--err);font-size:13px;margin:8px 0 0"></p>
+    <div class="row"><button class="btn" id="bt">Batal</button><button class="btn danger" id="by">Ya, hapus</button></div>`;
+  document.body.appendChild(d); d.showModal();
+  $('#bt', d).onclick = () => { d.close(); d.remove(); };
+  $('#by', d).onclick = async () => {
+    try { await api('/api/penelitian/' + slug, { method: 'DELETE' }); d.close(); d.remove(); muat(); }
+    catch (e) { $('#em', d).textContent = e.message; }
+  };
 }
 (async () => {
   await initHeader('data', 'Poster Penelitian');

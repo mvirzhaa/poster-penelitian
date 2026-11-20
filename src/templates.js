@@ -149,6 +149,9 @@ header{padding:70px 72px 48px}
 h2{font-size:40px;margin-top:22px}
 .people{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center;column-gap:36px;row-gap:22px;margin-top:38px}
 .people .avatar{grid-column:1;grid-row:1/3}.people .who{grid-column:2;grid-row:1;align-self:end}.people .qrtop{grid-column:3;grid-row:1/3}
+.people.noav{grid-template-columns:1fr auto}.people.noav .who,.people.noav .ang{grid-column:1}.people.noav .qrtop{grid-column:2}
+.people.noqr{grid-template-columns:auto 1fr}.people.noqr.noav{grid-template-columns:1fr}
+.people.nowho .ang{grid-row:1;border-top:0;padding-top:0}.people.nowho .avatar,.people.nowho .qrtop{grid-row:1}
 .avatar{width:310px;height:310px;font-size:100px}
 .who b{font-size:48px}.who span{font-size:29px;margin-top:4px}
 .lab{font-size:21px}
@@ -252,23 +255,27 @@ function topRow(r) {
 }
 
 const { bersihkanNama, anggotaPeneliti } = require('./nama');
+const { petaTampil } = require('./tampil');
 
 // Gelar selalu dibuang dari nama di semua ukuran poster.
 const tanpaGelar = r => ({ ...r, peneliti_nama: bersihkanNama(r.peneliti_nama),
   anggota_peneliti: anggotaPeneliti(r).map(a => ({ ...a, nama: bersihkanNama(a.nama) })) });
 
 // Identitas peneliti (di header): Peneliti Utama, Anggota Peneliti (maks 5), dan QR sejajar dengan peneliti.
-function peopleHtml(r, qr, fmt) {
+function peopleHtml(r, qr, fmt, T) {
   const ang = anggotaPeneliti(r);
-  const who = `<div class="who"><small class="lab">Peneliti Utama</small><b>${esc(r.peneliti_nama)}</b>` +
+  const who = !T.peneliti_utama ? '' : `<div class="who"><small class="lab">Peneliti Utama</small><b>${esc(r.peneliti_nama)}</b>` +
 `</div>`;
-  const angHtml = ang.length
+  const angHtml = ang.length && T.anggota
     ? `<div class="ang${ang.length > 3 ? ' many' : ''}"><small class="lab">Anggota Peneliti</small><div class="lst">${ang.map(a => `<b>${esc(a.nama)}</b>`).join('')}</div></div>` : '';
   const qrHtml = qr ? `<div class="qrtop"><div class="qr">${qr}</div><span>Pindai</span></div>` : '';
   // A2: avatar | peneliti | anggota | QR   X-banner: (avatar | peneliti | QR) lalu anggota di baris bawah
+  const av = T.foto_peneliti ? avatar(r) : '';
+  if (!av && !who && !angHtml && !qrHtml) return '';
+  const cls = 'people' + (av ? '' : ' noav') + (qrHtml ? '' : ' noqr') + (who ? '' : ' nowho');
   return fmt === 'xbanner'
-    ? `<div class="people">${avatar(r)}${who}${qrHtml}${angHtml}</div>`
-    : `<div class="people">${avatar(r)}${who}${angHtml}${qrHtml}</div>`;
+    ? `<div class="${cls}">${av}${who}${qrHtml}${angHtml}</div>`
+    : `<div class="${cls}">${av}${who}${angHtml}${qrHtml}</div>`;
 }
 
 function abstrakHtml(r, fmt) {
@@ -288,15 +295,30 @@ function penutupHtml(r, fmt) {
   if (out.length) blocks.push(`<div class="fb fb-out"><h4>Output Penelitian</h4><div class="chips">${out.map(o => `<span class="chip">${esc(o)}</span>`).join('')}</div></div>`);
   if (fmt !== 'share' && (r.ucapan || '').trim()) blocks.push(`<div class="fb fb-full"><h4>Ucapan Terima Kasih</h4>${rich(r.ucapan)}</div>`);
   const kontak = (r.kontak || '').trim() ? `<div class="fk"><h4>Kontak</h4>${rich(r.kontak)}</div>` : '<div class="fk"></div>';
-  const logos = `<div class="flogos"><img class="apt" src="/assets/logo-apt-unggul.png" alt="Peringkat Akreditasi APT Unggul BAN-PT">${sponsorHtml(r, 'kanan_bawah')}</div>`;
+  const logos = `<div class="flogos">${r._t.logo_apt ? '<img class="apt" src="/assets/logo-apt-unggul.png" alt="Peringkat Akreditasi APT Unggul BAN-PT">' : ''}${sponsorHtml(r, 'kanan_bawah')}</div>`;
   return `<footer>${blocks.length ? `<div class="fgrid">${blocks.join('')}</div>` : ''}<div class="fbar">${kontak}${logos}</div></footer>`;
 }
 
 async function posterHtml(r0, fotos, fmt, { baseUrl, inPerPx = 0 } = {}) {
+  const T = petaTampil(r0.tampil);
   const r = tanpaGelar(r0);
+  r._t = T;
+  // Elemen yang dimatikan dikosongkan sehingga judul bagiannya (mis. "Sumber Anggaran") ikut hilang.
+  if (!T.logo_instansi) r.logo = null;
+  if (!T.instansi) { r.institusi = ''; r.unit = ''; }
+  if (!T.tahun) r.tahun = '';
+  if (!T.subjudul) r.subjudul = '';
+  if (!T.sponsor) r.sponsor = [];
+  if (!T.abstrak) r.abstrak = '';
+  if (!T.anggaran) r.anggaran = '';
+  if (!T.sumber_anggaran) r.sumber_anggaran = '';
+  if (!T.output) r.output_penelitian = [];
+  if (!T.ucapan) r.ucapan = '';
+  if (!T.kontak) r.kontak = '';
+  if (!T.foto_produk) fotos = [];
   const t = THEMES[r.tema] || THEMES.biru;
   const target = r.url_qr || (baseUrl ? `${baseUrl}/p/${r.slug}` : '');
-  const qr = await qrSvg(target);
+  const qr = T.qr ? await qrSvg(target) : '';
   const themeVars = `:root{--p:${t.p};--pd:${t.pd};--a:${t.a};--l:${t.l}}`;
   const sizes = { a2: [66, 58, 50, 42], xbanner: [78, 68, 60, 52], share: [58, 50, 43, 37] }[fmt];
   const fsz = titleSize(r.judul.length, sizes);
@@ -306,9 +328,9 @@ async function posterHtml(r0, fotos, fmt, { baseUrl, inPerPx = 0 } = {}) {
   const body = `
 <header><img class="brand" src="/assets/logo-universitas.png" alt="Universitas Ibn Khaldun Bogor">${sponsorHtml(r, 'kiri_atas')}${topRow(r)}
   <h1 style="font-size:${fsz}px">${esc(r.judul)}</h1>${r.subjudul ? `<h2>${esc(r.subjudul)}</h2>` : ''}
-  ${peopleHtml(r, qr, fmt)}
+  ${peopleHtml(r, qr, fmt, T)}
 </header>
-<main>${abstrakHtml(r, fmt)}${await gallery(fotos, maxFoto) || '<div class="gal n1" style="background:var(--l);border-radius:16px"></div>'}</main>
+<main>${abstrakHtml(r, fmt)}${T.foto_produk ? (await gallery(fotos, maxFoto) || '<div class="gal n1" style="background:var(--l);border-radius:16px"></div>') : ''}</main>
 ${penutupHtml(r, fmt)}`;
 
   return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>${esc(r.judul)}</title>

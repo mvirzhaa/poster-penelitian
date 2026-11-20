@@ -140,3 +140,7 @@ Setiap data penelitian membawa `peneliti` (peneliti utama) dan `anggota_peneliti
 Nilai `output_penelitian` yang valid: Scopus Q1–Q4, Sinta 1–4, Seminar Internasional, Seminar Nasional, Paten Sederhana, HKI, Buku, Teknologi Purwarupa, Kebijakan, Karya Monumental.
 
 `journey_slug` berisi slug dosen di Journey bila dipilih dari database Journey, `null` bila diketik manual (dosen luar).
+
+## Pengaturan tampil
+
+Pada detail penelitian dan payload webhook ada `tampil`: objek `{kunci: true|false}` untuk tiap elemen poster (`abstrak`, `anggaran`, `sumber_anggaran`, `output`, `qr`, dst.). Elemen bernilai `false` tidak dicetak di poster. Bawaan: semua `true` kecuali `sumber_anggaran`.

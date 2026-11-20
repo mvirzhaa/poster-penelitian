@@ -149,3 +149,6 @@ UPDATE penelitian SET anggota_peneliti = (
 WHERE anggota_peneliti = '[]'::jsonb AND (pembimbing1 <> '' OR pembimbing2 <> '');
 UPDATE penelitian SET abstrak = COALESCE(NULLIF(ringkasan, ''), NULLIF(latar_belakang, ''), '')
 WHERE abstrak = '' AND (ringkasan <> '' OR latar_belakang <> '');
+
+-- Pengaturan elemen poster yang ditampilkan/disembunyikan: {"abstrak":true,"sumber_anggaran":false,...}. Kunci yang belum ada memakai nilai bawaan (lihat src/tampil.js).
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS tampil JSONB NOT NULL DEFAULT '{}';

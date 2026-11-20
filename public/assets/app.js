@@ -57,11 +57,8 @@ function bukaGantiSandi() {
     const f = e.target;
     try {
       await api('/api/ganti-sandi', jsonOpt('POST', { lama: f.lama.value, baru: f.baru.value }));
-      alert('Kata sandi berhasil diganti.');
-      d.close(); d.remove();
-      $('.alert')?.remove();
-    } catch (err) {
-      $('#gsm', d).textContent = err.message; $('#gsm', d).className = 'msg err';
-    }
+      $('#gsm', d).textContent = 'Kata sandi diganti ✓'; $('#gsm', d).style.color = 'var(--ok)';
+      setTimeout(() => location.reload(), 900);
+    } catch (err) { $('#gsm', d).textContent = err.message; $('#gsm', d).style.color = 'var(--err)'; }
   };
 }

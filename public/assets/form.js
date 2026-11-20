@@ -129,7 +129,7 @@ async function init() {
   };
   withDel('pvFoto', r.foto_peneliti, true); withDel('pvLogo', r.logo, false);
   sponsorTerpilih = Object.fromEntries((r.sponsor || []).map(x => [x.id, x.posisi]));
-  await muatOpsi(r.output_penelitian || []);
+  await muatOpsi(r.output_penelitian || [], r.tampil);
   (r.anggota_peneliti || []).forEach(a => tambahAnggota(a.nama, a.ref));
   await muatSponsor();
   existing = r.foto; r.foto.forEach(addExisting);
@@ -214,12 +214,16 @@ function dataAnggota() {
 }
 
 // ---------- Output penelitian (centang) ----------
-async function muatOpsi(terpilih = []) {
+async function muatOpsi(terpilih = [], tampil = null) {
   try {
     const o = await api('/api/opsi');
     MAKS_ANGGOTA = o.maks_anggota || 5;
     $('#outList').innerHTML = o.output_penelitian.map(x =>
       `<label class="chk"><input type="checkbox" name="output_penelitian" value="${esc(x)}"${terpilih.includes(x) ? ' checked' : ''}> ${esc(x)}</label>`).join('');
+    $('#tampilList').innerHTML = (o.elemen || []).map(e => {
+      const on = tampil && typeof tampil[e.k] === 'boolean' ? tampil[e.k] : e.def;
+      return `<label class="chk"><input type="checkbox" name="tampil" value="${esc(e.k)}"${on ? ' checked' : ''}> ${esc(e.label)}</label>`;
+    }).join('');
     sinkronCnt();
   } catch { /* diabaikan */ }
 }

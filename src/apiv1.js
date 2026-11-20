@@ -77,7 +77,7 @@ module.exports = function (app, wrap, { getFull, renderRow, baseOf }) {
       ...wh.ringkasData(row, baseOf(req)),
       isi: {
         abstrak: row.abstrak, anggaran: row.anggaran, sumber_anggaran: row.sumber_anggaran,
-        output_penelitian: row.output_penelitian, ucapan: row.ucapan, kontak: row.kontak,
+        output_penelitian: row.output_penelitian, tampil: require('./tampil').petaTampil(row.tampil), ucapan: row.ucapan, kontak: row.kontak,
       },
     });
   }));

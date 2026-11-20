@@ -28,7 +28,8 @@ const baseFallback = () => PUBLIC_BASE || INTERNAL;
 
 const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_info',
   'abstrak', 'anggaran', 'sumber_anggaran', 'ucapan', 'kontak', 'url_qr', 'tema'];
-const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian'];   // disimpan sebagai JSONB
+const { ELEMEN, bacaTampil, petaTampil } = require('./tampil');
+const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian', 'tampil'];   // disimpan sebagai JSONB
 const FIELDS = [...TEXT_FIELDS, ...JSON_FIELDS];
 const MAX_LEN = { judul: 300, subjudul: 300, abstrak: 2500, anggaran: 80, sumber_anggaran: 150, ucapan: 1000, kontak: 500, url_qr: 500 };
 const MAX_ANGGOTA = 5;
@@ -127,6 +128,8 @@ function readFields(body) {
   out.anggota_peneliti = JSON.stringify(ang);
   const outp = [].concat(body.output_penelitian === undefined ? [] : body.output_penelitian).map(String);
   out.output_penelitian = JSON.stringify(OUTPUT_PENELITIAN.filter(o => outp.includes(o))); // urutan baku, hanya nilai yang dikenal
+  const tp = bacaTampil(body);
+  out.tampil = tp ? JSON.stringify(tp) : undefined;   // undefined = tidak dikirim (insert -> bawaan, update -> tidak diubah)
   if (!out.judul) throw httpError(400, 'Judul penelitian wajib diisi.');
   if (!out.peneliti_nama) throw httpError(400, 'Nama peneliti wajib diisi.');
   if (!THEMES[out.tema]) out.tema = 'biru';
@@ -217,6 +220,7 @@ router.get('/api/penelitian/:slug', wrap(async (req, res) => res.json(await getO
 
 router.post('/api/penelitian', upload, wrap(async (req, res) => {
   const f = readFields(req.body);
+  if (f.tampil === undefined) f.tampil = JSON.stringify(petaTampil({}));
   const prodiId = await resolveProdi(req);
   const files = req.files || {};
   const slug = crypto.randomBytes(6).toString('base64url');
@@ -255,6 +259,7 @@ router.post('/api/penelitian', upload, wrap(async (req, res) => {
 router.put('/api/penelitian/:slug', upload, wrap(async (req, res) => {
   const cur = await getOwned(req);
   const f = readFields(req.body);
+  if (f.tampil === undefined) f.tampil = JSON.stringify(petaTampil(cur.tampil));
   const prodiId = req.user.peran === 'admin' ? await resolveProdi(req) : cur.prodi_id;
   const files = req.files || {};
   const newFiles = [], oldToRemove = [];
@@ -387,7 +392,7 @@ router.post('/api/penelitian/:slug/kirim', wrap(async (req, res) => {
 }));
 
 // Opsi isian untuk form (output penelitian, batas anggota)
-router.get('/api/opsi', A.requireLogin, (req, res) => res.json({ output_penelitian: OUTPUT_PENELITIAN, maks_anggota: MAX_ANGGOTA }));
+router.get('/api/opsi', A.requireLogin, (req, res) => res.json({ output_penelitian: OUTPUT_PENELITIAN, maks_anggota: MAX_ANGGOTA, elemen: ELEMEN }));
 
 // ---------- Integrasi Journey ----------
 // Cari dosen di database Journey untuk kolom pembimbing (pembimbing luar UIKA tetap boleh diketik manual).
