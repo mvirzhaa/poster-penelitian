@@ -130,3 +130,7 @@ Aplikasi ini terhubung ke **Journey** lewat API (`JOURNEY_API_URL` + `JOURNEY_AP
 ## Elemen poster yang ditampilkan
 
 Di form (bagian 6) setiap elemen isi poster punya kotak centang tampil/sembunyi, berlaku untuk A2, X-banner, dan share: logo mitra, institusi & unit, tahun, sponsor, sub-judul, foto peneliti, peneliti utama, anggota, QR, abstrak, foto produk, anggaran, sumber anggaran, output, ucapan terima kasih, kontak, dan logo APT Unggul. Judul dan logo UIKA selalu tampil. Bawaan: semua tampil **kecuali sumber anggaran**; judul bagian (mis. "Sumber Anggaran") ikut hilang bila elemennya disembunyikan. Daftar elemen ada di `src/tampil.js`.
+
+## Peneliti utama dari Journey
+
+Nama peneliti utama juga bisa dipilih dari daftar dosen Journey (ketik lalu pilih), sama seperti anggota; dosen luar diketik manual. Dosen Journey yang dipilih sebagai peneliti utama ikut menjadi "dosen terlibat" pada poster di Journey. Tautannya disimpan di kolom `peneliti_ref`.

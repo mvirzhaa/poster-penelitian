@@ -152,3 +152,6 @@ WHERE abstrak = '' AND (ringkasan <> '' OR latar_belakang <> '');
 
 -- Pengaturan elemen poster yang ditampilkan/disembunyikan: {"abstrak":true,"sumber_anggaran":false,...}. Kunci yang belum ada memakai nilai bawaan (lihat src/tampil.js).
 ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS tampil JSONB NOT NULL DEFAULT '{}';
+
+-- Peneliti utama dapat berasal dari dosen Journey (slug Journey); kosong = diketik manual.
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS peneliti_ref TEXT NOT NULL DEFAULT '';

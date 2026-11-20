@@ -38,7 +38,7 @@
 
 <fieldset><legend>2. Peneliti</legend>
   <div class="row2">
-    <label>Nama peneliti utama *<input type="text" name="peneliti_nama" required maxlength="150"></label>
+    <label>Nama peneliti utama * <span class="h">(dosen UIKA: ketik lalu pilih dari daftar Journey; dosen luar: ketik manual)</span><input type="text" name="peneliti_nama" id="penelitiNama" required maxlength="150" list="dlDosen" autocomplete="off"><input type="hidden" name="peneliti_ref" id="penelitiRef"><div class="hint" id="penelitiHint"></div></label>
   </div>
   <label>Foto peneliti utama <span class="h">(wajah terlihat jelas; dipotong persegi/bulat otomatis)</span><input type="file" name="foto_peneliti" accept="image/*" data-pv="pvFoto" data-jenis="peneliti"></label><div class="hint" data-hint="peneliti"></div>
   <div class="pv" id="pvFoto"></div>

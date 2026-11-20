@@ -128,7 +128,7 @@ Detail penelitian (`GET /api/v1/penelitian/:slug`) dan payload webhook memuat:
 Setiap data penelitian membawa `peneliti` (peneliti utama) dan `anggota_peneliti` (maksimal 5 nama **tanpa gelar**). Pada payload webhook, anggota disertai tautan Journey:
 
 ```json
-"peneliti_utama": "Fitrah Fajar",
+"peneliti_utama": { "nama": "Fitrah Fajar", "journey_slug": "fitrah-fajar-..." },
 "anggota_peneliti": [
   { "nama": "Fitrah Satrya Fajar Kusumah", "journey_slug": "fitrah-satrya-gmail-com-2971" },
   { "nama": "Dewi Lestari", "journey_slug": null }

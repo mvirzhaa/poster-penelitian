@@ -20,7 +20,7 @@ async function cariDosen(q, limit = 15) {
 }
 
 const { bersihkanNama, anggotaPeneliti } = require('./nama');
-const refs = r => [...new Set(anggotaPeneliti(r).map(a => a.ref).filter(Boolean))];
+const refs = r => [...new Set([r.peneliti_ref, ...anggotaPeneliti(r).map(a => a.ref)].filter(Boolean))];
 
 async function simpanStatus(slug, status, pesan) {
   await pool.query('UPDATE penelitian SET journey_status=$2, journey_pesan=$3, journey_at=now() WHERE slug=$1', [slug, status, String(pesan || '').slice(0, 300)]).catch(() => {});

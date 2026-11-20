@@ -106,6 +106,7 @@ function addExisting(f) {
 }
 
 async function init() {
+  initUtama();
   await initHeader('data', 'Poster Penelitian');
   if (ME.peran === 'admin') {
     $('#fsProdi').hidden = false;
@@ -129,6 +130,7 @@ async function init() {
   };
   withDel('pvFoto', r.foto_peneliti, true); withDel('pvLogo', r.logo, false);
   sponsorTerpilih = Object.fromEntries((r.sponsor || []).map(x => [x.id, x.posisi]));
+  pilihUtama = r.peneliti_ref ? r.peneliti_nama : ''; hintUtama();
   await muatOpsi(r.output_penelitian || [], r.tampil);
   (r.anggota_peneliti || []).forEach(a => tambahAnggota(a.nama, a.ref));
   await muatSponsor();
@@ -168,6 +170,38 @@ function hintAnggota(row) {
   if (ref.value) row.dataset.pilih = v;
   h.textContent = ref.value ? '✓ Dosen Journey — produk ini tampil di profil dosen tersebut.' : 'Diketik manual (dosen luar / tidak terhubung ke Journey).';
   h.style.color = ref.value ? '#15803d' : '';
+}
+
+// Peneliti utama: sama seperti anggota, dapat ditarik dari dosen Journey
+let pilihUtama = '';
+function hintUtama() {
+  const inp = $('#penelitiNama'), ref = $('#penelitiRef'), h = $('#penelitiHint'), v = inp.value.trim();
+  if (!v) { ref.value = ''; h.textContent = ''; return; }
+  if (dosenByNama.has(v)) ref.value = dosenByNama.get(v);
+  else if (ref.value && pilihUtama !== v) ref.value = '';
+  if (ref.value) pilihUtama = v;
+  h.textContent = ref.value ? '✓ Dosen Journey — produk ini tampil di profil dosen tersebut.' : 'Diketik manual (dosen luar / tidak terhubung ke Journey).';
+  h.style.color = ref.value ? '#15803d' : '';
+}
+let tmrUtama;
+function initUtama() {
+  const inp = $('#penelitiNama');
+  inp.addEventListener('input', () => {
+    hintUtama();
+    const q = inp.value.trim();
+    clearTimeout(tmrUtama);
+    if (q.length < 2 || !journeyAktif) return;
+    tmrUtama = setTimeout(async () => {
+      try {
+        const r = await api('/api/dosen?q=' + encodeURIComponent(q));
+        if (r.aktif === false) { journeyAktif = false; return; }
+        for (const d of r.data || []) dosenByNama.set(d.nama, d.slug);
+        dlDosen.innerHTML = (r.data || []).map(d => `<option value="${esc(d.nama)}">${esc([d.jabatan, d.prodi].filter(Boolean).join(' · '))}</option>`).join('');
+        hintUtama();
+      } catch { /* tetap bisa diketik manual */ }
+    }, 250);
+  });
+  inp.addEventListener('change', hintUtama);
 }
 
 let tmrDosen;

@@ -26,7 +26,7 @@ const INTERNAL = `http://127.0.0.1:${PORT}`;
 const baseOf = req => PUBLIC_BASE || `${req.protocol}://${req.get('host')}`;
 const baseFallback = () => PUBLIC_BASE || INTERNAL;
 
-const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_info',
+const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_ref', 'peneliti_info',
   'abstrak', 'anggaran', 'sumber_anggaran', 'ucapan', 'kontak', 'url_qr', 'tema'];
 const { ELEMEN, bacaTampil, petaTampil } = require('./tampil');
 const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian', 'tampil'];   // disimpan sebagai JSONB
@@ -130,6 +130,7 @@ function readFields(body) {
   out.output_penelitian = JSON.stringify(OUTPUT_PENELITIAN.filter(o => outp.includes(o))); // urutan baku, hanya nilai yang dikenal
   const tp = bacaTampil(body);
   out.tampil = tp ? JSON.stringify(tp) : undefined;   // undefined = tidak dikirim (insert -> bawaan, update -> tidak diubah)
+  if (!/^[A-Za-z0-9_.-]{1,150}$/.test(out.peneliti_ref)) out.peneliti_ref = '';
   if (!out.judul) throw httpError(400, 'Judul penelitian wajib diisi.');
   if (!out.peneliti_nama) throw httpError(400, 'Nama peneliti wajib diisi.');
   if (!THEMES[out.tema]) out.tema = 'biru';

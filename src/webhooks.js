@@ -29,7 +29,7 @@ function ringkasData(r, base) {
     institusi: r.institusi,
     unit: r.unit,
     prodi: r.prodi_id ? { kode: r.prodi_kode, nama: r.prodi_nama } : null,
-    peneliti_utama: { nama: bersihkanNama(r.peneliti_nama) },
+    peneliti_utama: { nama: bersihkanNama(r.peneliti_nama), journey_slug: r.peneliti_ref || null },
     anggota_peneliti: anggotaPeneliti(r).map(a => ({ nama: bersihkanNama(a.nama), journey_slug: a.ref || null })),
     abstrak: r.abstrak,
     anggaran: r.anggaran,
