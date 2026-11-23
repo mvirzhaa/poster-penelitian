@@ -35,6 +35,7 @@ function bacaTampil(body) {
   if (typeof t === 'string' && /^\s*[\[{]/.test(t)) { try { t = JSON.parse(t); } catch { t = []; } }
   if (t && typeof t === 'object' && !Array.isArray(t)) return petaTampil(t);
   const on = [].concat(t === undefined ? [] : t).map(String);
+  if (!on.some(k => KEYS.includes(k))) return undefined;   // tidak ada satu pun yang dicentang = isian tidak terkirim utuh; jangan menyembunyikan semuanya
   return Object.fromEntries(KEYS.map(k => [k, on.includes(k)]));
 }
 module.exports = { ELEMEN, KEYS, petaTampil, bacaTampil };

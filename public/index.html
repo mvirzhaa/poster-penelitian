@@ -31,7 +31,7 @@ async function muat() {
       ${admin ? `<td class="hide-m"><span class="chip">${esc(x.prodi_nama || '—')}</span></td>` : ''}
       <td class="hide-m sub">${esc((x.anggota_peneliti || []).map(a => a.nama).join(', ') || '—')}</td>
       <td class="hide-m sub">${fmtTgl(x.updated_at)}${x.diubah_oleh_nama ? `<br>oleh ${esc(x.diubah_oleh_nama)}` : ''}</td>
-      <td class="act"><a class="btn pri sm" href="${u('/p/' + x.slug)}">Poster</a><a class="btn sm" href="${u('/form.html?slug=' + x.slug)}">Edit</a><button class="btn danger sm" data-del="${x.slug}" data-j="${esc(x.judul)}">Hapus</button></td></tr>`; }).join('') + '</tbody></table></div>';
+      <td class="act"><a class="btn pri sm" href="${u('/p/' + x.slug)}">Poster</a>${x.bisa_ubah ? `<a class="btn sm" href="${u('/form.html?slug=' + x.slug)}">Edit</a><button class="btn danger sm" data-del="${x.slug}" data-j="${esc(x.judul)}">Hapus</button>` : ''}</td></tr>`; }).join('') + '</tbody></table></div>';
   $$('[data-del]').forEach(b => b.onclick = () => konfirmasiHapus(b.dataset.del, b.dataset.j));
   const hal = Math.ceil(r.total / r.per_halaman);
   $('#pg').innerHTML = hal > 1 ? `<button class="btn sm" ${page <= 1 ? 'disabled' : ''} id="prev">← Sebelumnya</button><span>Halaman ${page} dari ${hal} · ${r.total} data</span><button class="btn sm" ${page >= hal ? 'disabled' : ''} id="next">Berikutnya →</button>` : `<span>${r.total} data</span>`;
@@ -56,7 +56,7 @@ function konfirmasiHapus(slug, judul) {
     pr.forEach(x => s.insertAdjacentHTML('beforeend', `<option value="${x.id}">${esc(x.nama)}</option>`));
   }
   $('#prodi').onchange = () => { page = 1; muat(); };
-  $('#q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 1; muat(); }, 250); };
+  $('#q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 1; muat(); }, 300); };
   muat();
 })();
 </script></body></html>

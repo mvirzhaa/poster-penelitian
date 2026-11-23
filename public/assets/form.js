@@ -254,6 +254,8 @@ async function muatOpsi(terpilih = [], tampil = null) {
     MAKS_ANGGOTA = o.maks_anggota || 5;
     $('#outList').innerHTML = o.output_penelitian.map(x =>
       `<label class="chk"><input type="checkbox" name="output_penelitian" value="${esc(x)}"${terpilih.includes(x) ? ' checked' : ''}> ${esc(x)}</label>`).join('');
+    // penanda dikirim hanya bila daftar centang benar-benar tampil (mencegah semua elemen tersimpan 'tidak tampil')
+    $('#tampilAda').innerHTML = (o.elemen || []).length ? '<input type="hidden" name="tampil_ada" value="1">' : '';
     $('#tampilList').innerHTML = (o.elemen || []).map(e => {
       const on = tampil && typeof tampil[e.k] === 'boolean' ? tampil[e.k] : e.def;
       return `<label class="chk"><input type="checkbox" name="tampil" value="${esc(e.k)}"${on ? ' checked' : ''}> ${esc(e.label)}</label>`;

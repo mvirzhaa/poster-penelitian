@@ -155,3 +155,7 @@ ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS tampil JSONB NOT NULL DEFAULT '{
 
 -- Peneliti utama dapat berasal dari dosen Journey (slug Journey); kosong = diketik manual.
 ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS peneliti_ref TEXT NOT NULL DEFAULT '';
+
+-- Perbaikan: data yang tersimpan dengan SEMUA elemen "tidak tampil" (akibat form lama/cache browser) dikembalikan ke bawaan.
+UPDATE penelitian SET tampil = '{}', updated_at = now()
+ WHERE tampil <> '{}'::jsonb AND NOT EXISTS (SELECT 1 FROM jsonb_each(tampil) e WHERE e.value = 'true'::jsonb);

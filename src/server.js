@@ -178,10 +178,13 @@ async function segarkanPoster(sponsorId) {
 
 // ---------- Hak akses: staf TU hanya data prodinya; admin semua ----------
 const canAccess = (u, r) => u.peran === 'admin' || (r.prodi_id != null && r.prodi_id === u.prodi_id);
+// Mengubah/menghapus/mengirim poster: hanya pembuatnya (admin tetap boleh mengelola semua).
+const canEdit = (u, r) => u.peran === 'admin' || (r.dibuat_oleh != null && r.dibuat_oleh === u.id);
 async function getOwned(req) {
   const r = await getFull(req.params.slug);
   if (!r) throw httpError(404, 'Data tidak ditemukan');
   if (!canAccess(req.user, r)) throw httpError(403, 'Anda tidak berhak mengakses data prodi lain.');
+  if (!canEdit(req.user, r)) throw httpError(403, 'Poster ini dibuat oleh pengguna lain. Hanya pembuatnya yang dapat mengubah atau menghapusnya.');
   return r;
 }
 async function resolveProdi(req) {
@@ -205,7 +208,7 @@ router.get('/api/penelitian', wrap(async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const { rows } = await pool.query(`
-    SELECT p.slug, p.judul, p.peneliti_nama, p.anggota_peneliti, p.tema, p.updated_at, p.foto_peneliti,
+    SELECT p.slug, p.judul, p.peneliti_nama, p.anggota_peneliti, p.tema, p.updated_at, p.foto_peneliti, p.dibuat_oleh,
       pr.nama AS prodi_nama, u.nama AS diubah_oleh_nama,
       (SELECT file FROM foto_penelitian f WHERE f.penelitian_id=p.id ORDER BY urutan,id LIMIT 1) AS foto_utama,
       (SELECT count(*)::int FROM foto_penelitian f WHERE f.penelitian_id=p.id) AS jml_foto,
@@ -214,7 +217,7 @@ router.get('/api/penelitian', wrap(async (req, res) => {
     WHERE ($1::int IS NULL OR p.prodi_id=$1)
       AND ($2='' OR p.judul ILIKE $3 OR p.peneliti_nama ILIKE $3 OR p.anggota_peneliti::text ILIKE $3)
     ORDER BY p.updated_at DESC LIMIT $4 OFFSET $5`, [prodi, q, `%${q}%`, limit, (page - 1) * limit]);
-  res.json({ total: rows[0] ? Number(rows[0].total) : 0, halaman: page, per_halaman: limit, data: rows.map(({ total, ...x }) => x) });
+  res.json({ total: rows[0] ? Number(rows[0].total) : 0, halaman: page, per_halaman: limit, data: rows.map(({ total, dibuat_oleh, ...x }) => ({ ...x, bisa_ubah: canEdit(req.user, { dibuat_oleh }) })) });
 }));
 
 router.get('/api/penelitian/:slug', wrap(async (req, res) => res.json(await getOwned(req))));

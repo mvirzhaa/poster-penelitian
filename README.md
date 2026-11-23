@@ -134,3 +134,7 @@ Di form (bagian 6) setiap elemen isi poster punya kotak centang tampil/sembunyi,
 ## Peneliti utama dari Journey
 
 Nama peneliti utama juga bisa dipilih dari daftar dosen Journey (ketik lalu pilih), sama seperti anggota; dosen luar diketik manual. Dosen Journey yang dipilih sebagai peneliti utama ikut menjadi "dosen terlibat" pada poster di Journey. Tautannya disimpan di kolom `peneliti_ref`.
+
+## Hak ubah poster
+
+Staf TU melihat seluruh poster di prodinya, tetapi hanya **pembuat** poster yang dapat membuka form edit, mengubah, menghapus, mengirim ke webhook, atau menyinkronkan ke Journey. Dicek di server (menembak URL `/form.html?slug=...` atau API langsung dijawab 403), dan tombol Edit/Hapus disembunyikan untuk poster orang lain. Admin tetap dapat mengelola semua poster.

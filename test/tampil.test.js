@@ -25,6 +25,7 @@ test('petaTampil respects custom booleans', () => {
 
 test('bacaTampil parses form input array or object', () => {
   assert.equal(bacaTampil({}), undefined);
+  assert.equal(bacaTampil({ tampil_ada: '1', tampil: [] }), undefined);
   const fromForm = bacaTampil({ tampil_ada: '1', tampil: ['abstrak', 'logo_apt'] });
   assert.equal(fromForm.abstrak, true);
   assert.equal(fromForm.logo_apt, true);
