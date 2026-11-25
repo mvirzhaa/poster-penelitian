@@ -89,14 +89,12 @@ main{padding:0}
 .sec li{margin-bottom:.25em}
 .sec li::marker{color:var(--p)}
 .sec.hl{background:var(--l);border-radius:18px;padding:.9em 1.1em}
-.gal{flex:1 1 0;display:grid;gap:var(--galgap);grid-auto-rows:1fr;min-height:0}
-.gal figure{position:relative;overflow:hidden;border-radius:16px;background:var(--l)}
+.gal{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--galgap);min-height:0;container-type:size}
+/* Tinggi baris = yang lebih kecil antara jatah tinggi dan lebar/Σrasio, sehingga tiap sel persis mengikuti rasio fotonya (tanpa pemotongan/latar tambahan). */
+.gal .row{--h:min(calc((100cqh - (var(--k) - 1)*var(--galgap))/var(--k)),calc((100cqw - (var(--m) - 1)*var(--galgap))/var(--sar)));flex:none;display:flex;gap:var(--galgap);height:var(--h);width:calc(var(--h)*var(--sar) + (var(--m) - 1)*var(--galgap))}
+.gal figure{position:relative;overflow:hidden;border-radius:16px;background:var(--l);flex:1 1 0;min-width:0}
 .gal img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.gal figure.por img.bg{inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(20px) brightness(.8)}
-.gal figure.por img.fg{object-fit:contain;padding:0 0 0 0}
 .gal figcaption{position:absolute;left:0;right:0;bottom:0;padding:1.6em .8em .6em;font-size:var(--cap);font-weight:500;line-height:1.3;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.72))}
-.gal.n1{grid-template-columns:1fr}
-.gal.n2,.gal.n4{grid-template-columns:1fr 1fr}
 footer{background:var(--pd);color:#e8edf7}
 .spons{display:flex;align-items:center;gap:var(--spgap);flex-wrap:wrap}
 .spons>span{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:var(--spl);opacity:.85;margin-right:4px}
@@ -135,10 +133,7 @@ h2{font-size:27px;margin-top:14px}
 .qrtop .qr{width:150px;height:150px}.qrtop span{font-size:14px}
 main{flex:1 1 auto;display:flex;flex-direction:column;padding:30px 64px 26px;min-height:0;gap:24px}
 .abs{flex-shrink:0;margin-bottom:0}.abs .txt{column-count:1}
-.gal{min-height:200px;max-height:620px;}.gal.tall{min-height:390px}
-.gal.n3,.gal.n6{grid-template-columns:repeat(3,1fr)}
-.gal.n5{grid-template-columns:repeat(6,1fr)}.gal.n5 figure{grid-column:span 2}.gal.n5 figure:nth-child(n+4){grid-column:span 3}
-.gal.n7,.gal.n8{grid-template-columns:repeat(4,1fr)}
+.gal{min-height:200px;max-height:1100px;}.gal.tall{min-height:390px}
 footer{padding:28px 64px 30px;display:flex;flex-direction:column;gap:22px}
 footer h4{font-size:15px}footer p,footer li{font-size:calc(17px*var(--ts))}
 `,
@@ -161,8 +156,6 @@ h2{font-size:40px;margin-top:22px}
 main{flex:1 1 auto;display:flex;flex-direction:column;padding:44px 72px 0;min-height:0;gap:36px}
 .abs{flex-shrink:0}
 .gal{min-height:400px;max-height:1500px;}.gal.tall{min-height:700px}
-.gal.n3,.gal.n5{grid-template-columns:1fr 1fr}.gal.n3 figure:first-child,.gal.n5 figure:first-child{grid-column:span 2}
-.gal.n6,.gal.n7,.gal.n8{grid-template-columns:1fr 1fr}
 footer{padding:40px 72px 215px;display:flex;flex-direction:column;gap:34px;margin-top:36px}
 footer h4{font-size:22px}footer p,footer li{font-size:calc(26px*var(--ts))}
 .fgrid{flex-wrap:wrap;row-gap:30px}.fb{flex:1 1 440px}.fb-ang{flex:0 0 430px}.fb-out{flex:1 1 480px}.fb-full{flex:1 1 100%}
@@ -180,7 +173,6 @@ h2{font-size:24px;margin-top:10px}
 .qrtop .qr{width:112px;height:112px;padding:7px;border-radius:12px}.qrtop span{font-size:12px;margin-top:4px}
 main{flex:1 1 auto;display:flex;flex-direction:column;padding:24px 60px 22px;min-height:0;gap:20px}
 .gal{min-height:260px}
-.gal.n3,.gal.n4,.gal.n5{grid-template-columns:1.5fr 1fr;grid-template-rows:1fr 1fr}.gal.n3 figure:first-child{grid-row:span 2}
 .ring{font-size:calc(25px*var(--ts));line-height:1.45;color:#27303f;flex-shrink:0;border-left:8px solid var(--a);padding-left:22px}
 .ring b{display:block;font-size:calc(14px*var(--ts));letter-spacing:.08em;text-transform:uppercase;color:var(--p);margin-bottom:.2em}
 footer{padding:20px 60px 22px;display:flex;flex-direction:column;gap:14px}
@@ -212,27 +204,53 @@ async function qrSvg(url) {
   return QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
 }
 
-async function isPortrait(file) {
+// Rasio lebar/tinggi asli foto (dibatasi agar foto ekstrem tidak merusak tata letak). Tegak < 1, mendatar > 1.
+async function aspek(file) {
   try {
     const m = await sharp(path.join(UPLOAD_DIR, path.basename(file))).metadata();
-    return m.height / m.width > 1.25;
-  } catch { return false; }
+    const swap = (m.orientation || 1) >= 5;   // EXIF diputar 90 derajat
+    const w = swap ? m.height : m.width, h = swap ? m.width : m.height;
+    return Math.min(2.4, Math.max(0.42, w / h));
+  } catch { return 1.5; }
+}
+// Ukuran area galeri per format (px CSS, hasil pengukuran) dan maksimal foto per baris.
+const AREA_GALERI = { a2: { w: 1132, h: 1100, gap: 16, per: 4 }, xbanner: { w: 1056, h: 1500, gap: 20, per: 3 }, share: { w: 960, h: 709, gap: 12, per: 3 } };
+
+// Pilih pembagian foto (urutan tetap) ke baris yang menghasilkan total luas foto terbesar:
+// foto tegak cenderung dikelompokkan bersama agar tampil besar, foto mendatar mendapat baris lebar.
+function bagiBaris(figs, fmt) {
+  const A = AREA_GALERI[fmt] || AREA_GALERI.a2, n = figs.length;
+  let terbaik = null;
+  for (let mask = 0; mask < (1 << (n - 1)); mask++) {
+    const baris = []; let cur = [figs[0]];
+    for (let i = 1; i < n; i++) { if (mask & (1 << (i - 1))) { baris.push(cur); cur = []; } cur.push(figs[i]); }
+    baris.push(cur);
+    if (baris.some(r => r.length > A.per)) continue;
+    const hs = baris.map(r => (A.w - (r.length - 1) * A.gap) / r.reduce((a, x) => a + x.ar, 0));
+    const total = hs.reduce((a, h) => a + h, 0) + (baris.length - 1) * A.gap;
+    const sk = Math.min(1, A.h / total);
+    const luas = baris.reduce((a, r, i) => a + r.reduce((q, x) => q + x.ar, 0) * hs[i] * hs[i], 0) * sk * sk;
+    if (!terbaik || luas > terbaik.luas * 1.001) terbaik = { luas, baris };
+  }
+  return terbaik.baris;
 }
 
-// Foto tegak (mis. tangkapan layar ponsel) ditampilkan utuh di atas latar buram agar tidak terpotong.
-async function gallery(fotos, max) {
+// Tiap foto dikenali tegak/mendatar. Foto tegak mendapat sel tegak, foto mendatar sel mendatar:
+// satu baris berisi beberapa foto dengan tinggi sama dan lebar sebanding rasio aslinya, jadi tidak ada
+// foto tegak yang dipaksa menjadi mendatar (tanpa latar buram kiri-kanan).
+async function gallery(fotos, max, fmt) {
   const list = fotos.slice(0, max);
   if (!list.length) return '';
   const figs = await Promise.all(list.map(async (f, i) => {
     const src = `/uploads/${esc(f.file)}`;
+    const ar = await aspek(f.file);
     const cap = f.keterangan ? `<figcaption>${esc(f.keterangan)}</figcaption>` : '';
     const q = `data-q="foto" data-n="${esc(f.keterangan ? `Foto ${i + 1}: ${f.keterangan}` : `Foto ${i + 1}`)}"`;
-    return (await isPortrait(f.file))
-      ? `<figure class="por"><img class="bg" src="${src}" alt=""><img class="fg" src="${src}" alt="" ${q}>${cap}</figure>`
-      : `<figure><img src="${src}" alt="" ${q}>${cap}</figure>`;
+    return { ar, html: `<figure class="${ar < 0.95 ? 'por' : 'lan'}" style="flex-grow:${ar.toFixed(3)}"><img src="${src}" alt="" ${q}>${cap}</figure>` };
   }));
-  const tall = figs.some(h => h.startsWith('<figure class="por"'));
-  return `<div class="gal n${list.length}${tall ? ' tall' : ''}">${figs.join('')}</div>`;
+  const baris = bagiBaris(figs, fmt);
+  const tall = baris.some(r => r.every(x => x.ar < 0.95)) && baris.length === 1;
+  return `<div class="gal n${list.length}${tall ? ' tall' : ''}" style="--k:${baris.length}">${baris.map(r => `<div class="row" style="--sar:${r.reduce((a, x) => a + x.ar, 0).toFixed(3)};--m:${r.length}">${r.map(x => x.html).join('')}</div>`).join('')}</div>`;
 }
 
 function sponsorHtml(r, posisi) {
@@ -326,7 +344,7 @@ async function posterHtml(r0, fotos, fmt, { baseUrl, inPerPx = 0 } = {}) {
   <h1 style="font-size:${fsz}px">${esc(r.judul)}</h1>
   ${peopleHtml(r, qr, fmt, T)}
 </header>
-<main>${abstrakHtml(r, fmt)}${T.foto_produk ? (await gallery(fotos, maxFoto) || '<div class="gal n1" style="background:var(--l);border-radius:16px"></div>') : ''}</main>
+<main>${abstrakHtml(r, fmt)}${T.foto_produk ? (await gallery(fotos, maxFoto, fmt) || '<div class="gal n1" style="background:var(--l);border-radius:16px"></div>') : ''}</main>
 ${penutupHtml(r, fmt)}`;
 
   return `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>${esc(r.judul)}</title>
