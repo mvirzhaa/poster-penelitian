@@ -201,3 +201,38 @@ CROSS JOIN (VALUES
   ('Biaya Intangible Penelitian',1500000,'["Hibah Internal"]',3)
 ) AS k(nama,nominal,sumber,urutan)
 WHERE NOT EXISTS (SELECT 1 FROM komponen_biaya WHERE jenis IN ('dosen_mandiri','join_research'));
+
+-- ===== Fakultas pada prodi + daftar prodi UIKA =====
+ALTER TABLE prodi ADD COLUMN IF NOT EXISTS fakultas TEXT NOT NULL DEFAULT '';
+UPDATE prodi SET nama='Informatika' WHERE kode='informatika' AND nama='Teknik Informatika';
+INSERT INTO prodi (kode,nama,fakultas) VALUES
+  ('pendidikan-bahasa-inggris','Pendidikan Bahasa Inggris','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('pendidikan-masyarakat','Pendidikan Masyarakat (Luar Sekolah)','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('teknologi-pendidikan','Teknologi Pendidikan','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('pendidikan-vokasional-fashion','Pendidikan Vokasional Desain Fashion','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('matematika','Matematika','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('ppg','Program Profesi Guru (PPG)','Fakultas Keguruan dan Ilmu Pendidikan (FKIP)'),
+  ('ilmu-hukum','Ilmu Hukum','Fakultas Hukum'),
+  ('manajemen','Manajemen','Fakultas Ekonomi dan Bisnis (FEB)'),
+  ('akuntansi','Akuntansi','Fakultas Ekonomi dan Bisnis (FEB)'),
+  ('bisnis-digital','Bisnis Digital','Fakultas Ekonomi dan Bisnis (FEB)'),
+  ('perdagangan-internasional','Perdagangan Internasional','Fakultas Ekonomi dan Bisnis (FEB)'),
+  ('perbankan-keuangan-digital','Perbankan dan Keuangan Digital','Fakultas Ekonomi dan Bisnis (FEB)'),
+  ('pai','Pendidikan Agama Islam (PAI)','Fakultas Agama Islam (FAI)'),
+  ('hukum-keluarga-islam','Hukum Keluarga Islam','Fakultas Agama Islam (FAI)'),
+  ('kpi','Komunikasi dan Penyiaran Islam (KPI)','Fakultas Agama Islam (FAI)'),
+  ('ekonomi-syariah','Ekonomi Syariah','Fakultas Agama Islam (FAI)'),
+  ('pgmi','Pendidikan Guru Madrasah Ibtidaiyah (PGMI)','Fakultas Agama Islam (FAI)'),
+  ('bkpi','Bimbingan dan Konseling Pendidikan Islam (BKPI)','Fakultas Agama Islam (FAI)'),
+  ('manajemen-haji-umrah','Manajemen Haji dan Umrah','Fakultas Agama Islam (FAI)'),
+  ('ilmu-quran-tafsir','Ilmu Al-Qur''an dan Tafsir','Fakultas Agama Islam (FAI)'),
+  ('teknik-sipil','Teknik Sipil','Fakultas Teknik dan Sains (FTS)'),
+  ('teknik-mesin','Teknik Mesin','Fakultas Teknik dan Sains (FTS)'),
+  ('teknik-elektro','Teknik Elektro','Fakultas Teknik dan Sains (FTS)'),
+  ('informatika','Informatika','Fakultas Teknik dan Sains (FTS)'),
+  ('sistem-informasi','Sistem Informasi','Fakultas Teknik dan Sains (FTS)'),
+  ('rekayasa-pertanian-biosistem','Rekayasa Pertanian dan Biosistem','Fakultas Teknik dan Sains (FTS)'),
+  ('ilmu-lingkungan','Ilmu Lingkungan','Fakultas Teknik dan Sains (FTS)'),
+  ('kesehatan-masyarakat','Kesehatan Masyarakat','Fakultas Ilmu Kesehatan (FIK)'),
+  ('gizi','Gizi','Fakultas Ilmu Kesehatan (FIK)')
+ON CONFLICT (kode) DO UPDATE SET fakultas = CASE WHEN prodi.fakultas='' THEN EXCLUDED.fakultas ELSE prodi.fakultas END;

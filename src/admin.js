@@ -11,7 +11,7 @@ const intOrNull = v => (v === '' || v == null ? null : parseInt(v, 10));
 module.exports = function (app, wrap) {
   // Daftar prodi dipakai formulir (semua pengguna login)
   app.get('/api/prodi', requireLogin, wrap(async (req, res) => {
-    const { rows } = await pool.query('SELECT id,kode,nama FROM prodi ORDER BY nama');
+    const { rows } = await pool.query('SELECT id,kode,nama,fakultas FROM prodi ORDER BY fakultas,nama');
     res.json(rows);
   }));
 
@@ -20,18 +20,21 @@ module.exports = function (app, wrap) {
 
   // ----- Prodi -----
   r.post('/prodi', wrap(async (req, res) => {
-    const kode = String(req.body.kode || '').trim().toLowerCase(), nama = String(req.body.nama || '').trim();
+    const kode = String(req.body.kode || '').trim().toLowerCase();
+    const nama = String(req.body.nama || '').trim();
     if (!/^[a-z0-9-]{2,30}$/.test(kode)) throw httpError(400, 'Kode prodi: 2–30 karakter huruf kecil, angka, atau tanda hubung.');
     if (!nama) throw httpError(400, 'Nama prodi wajib diisi.');
+    const fakultas = String(req.body.fakultas || '').trim().slice(0, 120);
     try {
-      const { rows } = await pool.query('INSERT INTO prodi (kode,nama) VALUES ($1,$2) RETURNING *', [kode, nama]);
+      const { rows } = await pool.query('INSERT INTO prodi (kode,nama,fakultas) VALUES ($1,$2,$3) RETURNING *', [kode, nama, fakultas]);
       res.status(201).json(rows[0]);
     } catch (e) { throw e.code === '23505' ? httpError(400, 'Kode prodi sudah dipakai.') : e; }
   }));
   r.put('/prodi/:id', wrap(async (req, res) => {
     const nama = String(req.body.nama || '').trim();
     if (!nama) throw httpError(400, 'Nama prodi wajib diisi.');
-    await pool.query('UPDATE prodi SET nama=$1 WHERE id=$2', [nama, req.params.id]);
+    const fakultas = String(req.body.fakultas || '').trim().slice(0, 120);
+    await pool.query('UPDATE prodi SET nama=$1, fakultas=$2 WHERE id=$3', [nama, fakultas, req.params.id]);
     res.json({ ok: true });
   }));
   r.delete('/prodi/:id', wrap(async (req, res) => {

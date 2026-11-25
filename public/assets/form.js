@@ -111,7 +111,8 @@ async function init() {
   if (ME.peran === 'admin') {
     $('#fsProdi').hidden = false;
     const pr = await api('/api/prodi');
-    pr.forEach(x => $('#selProdi').insertAdjacentHTML('beforeend', `<option value="${x.id}">${esc(x.nama)}</option>`));
+    const fak = [...new Set(pr.map(x => x.fakultas || 'Lainnya'))];
+    fak.forEach(f => $('#selProdi').insertAdjacentHTML('beforeend', `<optgroup label="${esc(f)}">${pr.filter(x => (x.fakultas || 'Lainnya') === f).map(x => `<option value="${x.id}">${esc(x.nama)}</option>`).join('')}</optgroup>`));
     $('#selProdi').required = true;
   }
   if (!slug) { addRow(); await muatOpsi(); await muatSponsor(); return; }
