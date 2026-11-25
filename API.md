@@ -35,7 +35,7 @@ Contoh item pada daftar:
 ```json
 {
   "slug": "AbC123xy",
-  "judul": "…", "subjudul": "…", "tahun": "2026",
+  "judul": "…", "tahun": "2026",
   "peneliti": "Fitrah Fajar",   // peneliti utama
   "anggota_peneliti": ["Ahmad Syafiq", "Dewi Lestari"],   // maks. 5, tanpa gelar
   "prodi": { "kode": "informatika", "nama": "Teknik Informatika" },
@@ -133,7 +133,7 @@ Setiap data penelitian membawa `peneliti` (peneliti utama) dan `anggota_peneliti
   { "nama": "Fitrah Satrya Fajar Kusumah", "journey_slug": "fitrah-satrya-gmail-com-2971" },
   { "nama": "Dewi Lestari", "journey_slug": null }
 ],
-"abstrak": "…", "anggaran": "Rp 25.000.000", "sumber_anggaran": "Hibah Internal UIKA",
+"abstrak": "…", "biaya": [{"nama":"SPP","nominal":2000000,"sumber":["Mandiri"]}], "anggaran": "Rp 14.500.000", "sumber_anggaran": "Mandiri, Hibah Internal",
 "output_penelitian": ["Scopus Q1", "Sinta 2"]
 ```
 
@@ -144,3 +144,7 @@ Nilai `output_penelitian` yang valid: Scopus Q1–Q4, Sinta 1–4, Seminar Inter
 ## Pengaturan tampil
 
 Pada detail penelitian dan payload webhook ada `tampil`: objek `{kunci: true|false}` untuk tiap elemen poster (`abstrak`, `anggaran`, `sumber_anggaran`, `output`, `qr`, dst.). Elemen bernilai `false` tidak dicetak di poster. Bawaan: semua `true` kecuali `sumber_anggaran`.
+
+
+### Jenis penelitian & biaya
+Payload webhook dan detail memuat `jenis_penelitian` (`skripsi`, `thesis`, `desertasi`, `dosen_mandiri`, `join_research`), `total_biaya` (angka rupiah), dan pada detail `isi.biaya` (rincian komponen: `nama`, `nominal`, `sumber`). Poster hanya menampilkan total.

@@ -5,38 +5,24 @@
 <div class="bar" id="bar"></div>
 <div class="wrap">
 <h2 id="ttl" style="margin:0 0 14px;color:var(--pd)">Penelitian baru</h2>
-<div class="note" style="margin-bottom:16px">
-  <b>Syarat foto agar hasil cetak tidak pecah</b> (ukuran dalam piksel, bukan megabita):
-  <table>
-    <tr><th>Foto</th><th>Minimal (ditolak jika kurang)</th><th>Disarankan</th></tr>
-    <tr><td>Peneliti</td><td>800 × 800 px</td><td>1200 × 1200 px atau lebih</td></tr>
-    <tr><td>Produk / kegiatan</td><td>sisi panjang 1600 px dan sisi pendek 800 px</td><td><b>Foto pertama ≥ 2400 px</b>, foto lain ≥ 1600 px</td></tr>
-    <tr><td>Logo</td><td>600 px (sisi panjang)</td><td>1000 px atau lebih, PNG transparan</td></tr>
-  </table>
-  Foto langsung dari kamera ponsel (8 MP ke atas) sudah memenuhi. Kirim <b>ukuran asli</b> (jangan lewat WhatsApp/Telegram yang mengecilkan foto, dan jangan tangkapan layar kecil).
-  Standar cetak: <b>150 dpi</b> untuk poster A2 dan <b>100 dpi</b> untuk X-banner. Kualitas sebenarnya setiap foto dicek otomatis di halaman poster.
-</div>
 <form id="f" autocomplete="off">
 
 <fieldset id="fsProdi" hidden><legend>0. Prodi</legend>
   <label>Prodi pemilik data *<select name="prodi_id" id="selProdi"><option value="">— pilih prodi —</option></select></label>
 </fieldset>
 
-<fieldset><legend>1. Identitas penelitian</legend>
-  <label>Judul penelitian *<input type="text" name="judul" required maxlength="300"></label>
-  <label>Subjudul <span class="h">(opsional)</span><input type="text" name="subjudul" maxlength="300"></label>
-  <div class="row2">
-    <label>Institusi / lembaga<input type="text" name="institusi" maxlength="150" placeholder="contoh: BPPSI"></label>
-    <label>Unit / bagian / program studi<input type="text" name="unit" maxlength="150"></label>
-  </div>
-  <div class="row2">
-    <label>Tahun<input type="text" name="tahun" maxlength="20" placeholder="2026"></label>
-    <div><label>Logo institusi <span class="h">(opsional, PNG transparan lebih baik)</span><input type="file" name="logo" accept="image/*" data-pv="pvLogo" data-jenis="logo"></label><div class="hint" data-hint="logo"></div>
-      <div class="pv" id="pvLogo"></div></div>
-  </div>
+<fieldset><legend>1. Jenis penelitian</legend>
+  <p class="cnt" style="text-align:left;margin:10px 0">Pilih jenis penelitian lebih dulu. Pilihan ini menentukan komponen biaya yang dihitung otomatis.</p>
+  <div class="jenis" id="jenisList"></div>
 </fieldset>
 
-<fieldset><legend>2. Peneliti</legend>
+<div id="isiForm" hidden>
+<fieldset><legend>2. Identitas penelitian</legend>
+  <label>Judul penelitian *<input type="text" name="judul" required maxlength="300"></label>
+  <label>Tahun<input type="text" name="tahun" maxlength="20" placeholder="2026"></label>
+</fieldset>
+
+<fieldset><legend>3. Peneliti</legend>
   <div class="row2">
     <label>Nama peneliti utama * <span class="h">(dosen UIKA: ketik lalu pilih dari daftar Journey; dosen luar: ketik manual)</span><input type="text" name="peneliti_nama" id="penelitiNama" required maxlength="150" list="dlDosen" autocomplete="off"><input type="hidden" name="peneliti_ref" id="penelitiRef"><div class="hint" id="penelitiHint"></div></label>
   </div>
@@ -50,40 +36,52 @@
   <datalist id="dlDosen"></datalist>
 </fieldset>
 
-<fieldset><legend>3. Abstrak &amp; anggaran</legend>
+<fieldset><legend>4. Abstrak</legend>
   <label>Abstrak penelitian <span class="h">(ditampilkan di poster; baris diawali “- ” menjadi poin; teks panjang diperkecil otomatis)</span><textarea name="abstrak" data-rec="1000" style="min-height:160px"></textarea></label>
-  <div class="row2">
-    <label>Anggaran penelitian <span class="h">(mis. Rp 25.000.000)</span><input type="text" name="anggaran" maxlength="80" placeholder="Rp 25.000.000"></label>
-    <label>Sumber anggaran <span class="h">(mis. Hibah Internal UIKA 2026)</span><input type="text" name="sumber_anggaran" maxlength="150"></label>
-  </div>
 </fieldset>
 
-<fieldset><legend>4. Foto produk / kegiatan penelitian</legend>
+<fieldset><legend>5. Anggaran penelitian</legend>
+  <p class="cnt" style="text-align:left;margin:10px 0">Komponen mengikuti jenis penelitian. Komponen bernominal tetap sudah terisi otomatis; komponen bernominal bebas diisi sendiri. Sumber dana dapat dipilih lebih dari satu. Poster dan X-banner hanya menampilkan <b>total</b>.</p>
+  <div class="biaya-wrap"><table class="biaya" id="biayaTbl"><thead><tr><th>Komponen</th><th>Sumber dana</th><th class="r">Nominal (Rp)</th></tr></thead><tbody id="biayaBody"><tr><td colspan="3" class="h">Pilih jenis penelitian terlebih dahulu.</td></tr></tbody>
+    <tfoot><tr><th colspan="2" class="r">Total</th><th class="r" id="biayaTotal">Rp 0</th></tr></tfoot></table></div>
+</fieldset>
+
+<fieldset><legend>6. Foto produk / kegiatan penelitian</legend>
+  <details class="note syarat"><summary><b>Syarat foto agar hasil cetak tidak pecah</b> (klik untuk membuka/menutup)</summary>
+  <table>
+    <tr><th>Foto</th><th>Minimal (ditolak jika kurang)</th><th>Disarankan</th></tr>
+    <tr><td>Peneliti</td><td>800 × 800 px</td><td>1200 × 1200 px atau lebih</td></tr>
+    <tr><td>Produk / kegiatan</td><td>sisi panjang 1600 px dan sisi pendek 800 px</td><td><b>Foto pertama ≥ 2400 px</b>, foto lain ≥ 1600 px</td></tr>
+  </table>
+  Foto langsung dari kamera ponsel (8 MP ke atas) sudah memenuhi. Kirim <b>ukuran asli</b> (jangan lewat WhatsApp/Telegram yang mengecilkan foto, dan jangan tangkapan layar kecil).
+  Standar cetak: <b>150 dpi</b> untuk poster A2 dan <b>100 dpi</b> untuk X-banner. Kualitas sebenarnya setiap foto dicek otomatis di halaman poster.
+  </details>
   <p class="cnt" style="text-align:left;margin-top:10px">Maksimal 8 foto. Foto pertama menjadi foto utama (paling besar) dan sebaiknya ≥ 2400 px. Keterangan akan tampil di atas foto.</p>
   <div class="fotos" id="fotos"></div>
   <p><button type="button" class="btn sm" id="addFoto">+ Tambah foto</button></p>
 </fieldset>
 
-<fieldset><legend>5. Penutup</legend>
+<fieldset><legend>7. Penutup</legend>
   <div class="outwrap"><b>Output penelitian</b> <span class="h">(centang semua yang berlaku)</span><div class="outs" id="outList"></div></div>
   <label>Ucapan terima kasih <span class="h">(opsional)</span><textarea name="ucapan" data-rec="250" style="min-height:70px"></textarea></label>
   <label>Kontak <span class="h">(e-mail, telepon, media sosial)</span><textarea name="kontak" style="min-height:70px" maxlength="500"></textarea></label>
   <label>Tautan untuk kode QR <span class="h">(opsional; kosongkan agar QR mengarah ke halaman poster bila PUBLIC_BASE_URL diatur)</span><input type="text" name="url_qr" maxlength="500" placeholder="https://..."></label>
 </fieldset>
 
-<fieldset><legend>6. Elemen yang ditampilkan di poster</legend>
+<fieldset><legend>8. Elemen yang ditampilkan di poster</legend>
   <p class="cnt" style="text-align:left;margin:10px 0">Hilangkan centang untuk menyembunyikan elemen dari poster, X-banner, dan halaman share. Judul dan logo UIKA selalu tampil.</p>
   <span id="tampilAda"></span>
   <div class="outs" id="tampilList"></div>
 </fieldset>
 
-<fieldset><legend>7. Logo sponsor <span style="font-weight:400;color:var(--mut)">(opsional)</span></legend>
+<fieldset><legend>9. Logo sponsor <span style="font-weight:400;color:var(--mut)">(opsional)</span></legend>
   <p class="cnt" style="text-align:left;margin-top:10px">Centang logo yang ingin tampil, lalu pilih posisinya: <b>kiri atas</b> (di header) atau <b>kanan bawah</b> (di bagian bawah). Posisi dapat diubah kapan saja lewat halaman edit ini. Maksimal 3 logo per posisi. Logo ditambah di <a href="sponsor.html" id="linkSponsor" target="_blank">Kelola logo sponsor</a>.</p>
   <input type="hidden" name="sponsor_form" value="1">
   <div class="spons-list" id="sponsorList"></div>
 </fieldset>
 
-<fieldset><legend>8. Warna poster</legend><div class="themes" id="themes"></div></fieldset>
+<fieldset><legend>10. Warna poster</legend><div class="themes" id="themes"></div></fieldset>
+</div>
 
 <div class="sticky"><span class="msg" id="msg"></span><a class="btn" id="btnBatal" href="index.html">Batal</a><button class="btn pri" id="save" type="submit">Simpan &amp; lihat poster</button></div>
 </form></div>

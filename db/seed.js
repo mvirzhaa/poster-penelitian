@@ -6,6 +6,12 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const { pool, migrate } = require('../src/db');
 const { hashSandi } = require('../src/auth');
+const { hitungBiaya } = require('../src/biaya');
+async function isiBiaya(id, jenis, biaya = []) {
+  const h = await hitungBiaya({ jenis_penelitian: jenis, biaya });
+  await pool.query('UPDATE penelitian SET jenis_penelitian=$1,biaya=$2,total_biaya=$3,anggaran=$4,sumber_anggaran=$5 WHERE id=$6',
+    [h.jenis, JSON.stringify(h.biaya), h.total, h.anggaran, [...new Set(h.biaya.flatMap(b => b.sumber))].join(', '), id]);
+}
 
 // Akun dummy. Kata sandi awal: admin -> admin2026, staf TU -> prodi2026 (WAJIB diganti saat dipakai sungguhan).
 const PRODI = [
@@ -61,10 +67,10 @@ async function copyFoto(name, square) {
      abstrak,anggaran,sumber_anggaran,output_penelitian,anggota_peneliti,ucapan,kontak,prodi_id,dibuat_oleh,diubah_oleh,tema)
     VALUES ('contoh',$1,$2,'','','2026',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,'teal') RETURNING id`, [
     'Pemanfaatan Drone Penyemprot untuk Efisiensi Pemupukan dan Pengendalian Hama Padi',
-    'Contoh data: ganti seluruh isian ini dengan data penelitian Anda',
+    '',
     'Fitrah Fajar', '', peneliti,
     'Penyemprotan pestisida dan pupuk cair secara manual pada lahan padi memakan waktu, boros larutan, dan berisiko bagi kesehatan petani. Penelitian ini menguji drone penyemprot yang dioperasikan dari pinggir lahan untuk menyemprot area secara merata dengan debit terkontrol. Uji lapangan dilakukan pada lahan padi seluas 5 hektare di tiga kelompok tani. Hasilnya, waktu penyemprotan per hektare turun dari sekitar 3 jam menjadi 20 menit, penggunaan larutan berkurang 30 persen, dan petani tidak lagi terpapar bahan kimia secara langsung. Teknologi ini layak diterapkan pada kelompok tani dengan pelatihan operator dan prosedur keselamatan terbang.',
-    'Rp 25.000.000', 'Hibah Penelitian Internal UIKA 2026',
+    'Rp 14.500.000', 'Mandiri, Hibah Internal, Hibah External',
     JSON.stringify(['Scopus Q3', 'Sinta 2', 'Seminar Nasional', 'HKI', 'Teknologi Purwarupa']), JSON.stringify(anggota),
     'Terima kasih kepada LPPM UIKA dan seluruh pihak yang membantu (contoh).',
     'peneliti@contoh.go.id\nWA 0812-0000-0000',
@@ -87,6 +93,7 @@ async function copyFoto(name, square) {
     const sp = await pool.query('INSERT INTO sponsor (nama,file,prodi_id,dibuat_oleh) VALUES ($1,$2,NULL,$3) RETURNING id', [spon[i][1], out, tu]);
     await pool.query('INSERT INTO penelitian_sponsor (penelitian_id,sponsor_id,posisi,urutan) VALUES ($1,$2,$3,$4)', [ins.rows[0].id, sp.rows[0].id, spon[i][2], i]);
   }
+  await isiBiaya(ins.rows[0].id, 'skripsi');
   console.log('Data contoh dibuat: /p/contoh');
   await pool.end();
 })().catch(e => { console.error(e); process.exit(1); });

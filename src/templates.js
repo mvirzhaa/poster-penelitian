@@ -247,11 +247,8 @@ function avatar(r) {
 }
 
 function topRow(r) {
-  const inst = r.institusi || r.unit
-    ? `<div class="inst">${esc(r.institusi)}${r.unit ? `<small>${esc(r.unit)}</small>` : ''}</div>` : '';
-  const logo = r.logo ? `<img class="logo" src="/uploads/${esc(r.logo)}" alt="" data-q="logo" data-n="Logo">` : '';
   const tahun = r.tahun ? `<div class="tahun">${esc(r.tahun)}</div>` : '';
-  return (logo || inst || tahun) ? `<div class="top">${logo}${inst}${tahun}</div>` : '';
+  return tahun ? `<div class="top">${tahun}</div>` : '';
 }
 
 const { bersihkanNama, anggotaPeneliti } = require('./nama');
@@ -289,7 +286,9 @@ function penutupHtml(r, fmt) {
   const out = Array.isArray(r.output_penelitian) ? r.output_penelitian : [];
   const blocks = [];
   const ang = [];
-  if ((r.anggaran || '').trim()) ang.push(`<div><h4>Anggaran Penelitian</h4><div class="big">${esc(r.anggaran)}</div></div>`);
+  // Hanya total (jumlah semua komponen); rincian per komponen tidak ditampilkan di poster.
+  const total = Number(r.total_biaya) > 0 ? 'Rp ' + Math.round(Number(r.total_biaya)).toLocaleString('id-ID') : (r.anggaran || '').trim();
+  if (total) ang.push(`<div><h4>Total Anggaran Penelitian</h4><div class="big">${esc(total)}</div></div>`);
   if ((r.sumber_anggaran || '').trim()) ang.push(`<div><h4>Sumber Anggaran</h4><p>${esc(r.sumber_anggaran)}</p></div>`);
   if (ang.length) blocks.push(`<div class="fb fb-ang">${ang.join('')}</div>`);
   if (out.length) blocks.push(`<div class="fb fb-out"><h4>Output Penelitian</h4><div class="chips">${out.map(o => `<span class="chip">${esc(o)}</span>`).join('')}</div></div>`);
@@ -304,10 +303,7 @@ async function posterHtml(r0, fotos, fmt, { baseUrl, inPerPx = 0 } = {}) {
   const r = tanpaGelar(r0);
   r._t = T;
   // Elemen yang dimatikan dikosongkan sehingga judul bagiannya (mis. "Sumber Anggaran") ikut hilang.
-  if (!T.logo_instansi) r.logo = null;
-  if (!T.instansi) { r.institusi = ''; r.unit = ''; }
   if (!T.tahun) r.tahun = '';
-  if (!T.subjudul) r.subjudul = '';
   if (!T.sponsor) r.sponsor = [];
   if (!T.abstrak) r.abstrak = '';
   if (!T.anggaran) r.anggaran = '';
@@ -327,7 +323,7 @@ async function posterHtml(r0, fotos, fmt, { baseUrl, inPerPx = 0 } = {}) {
   // Urutan isi: identitas peneliti -> abstrak -> foto produk -> penutup
   const body = `
 <header><img class="brand" src="/assets/logo-universitas.png" alt="Universitas Ibn Khaldun Bogor">${sponsorHtml(r, 'kiri_atas')}${topRow(r)}
-  <h1 style="font-size:${fsz}px">${esc(r.judul)}</h1>${r.subjudul ? `<h2>${esc(r.subjudul)}</h2>` : ''}
+  <h1 style="font-size:${fsz}px">${esc(r.judul)}</h1>
   ${peopleHtml(r, qr, fmt, T)}
 </header>
 <main>${abstrakHtml(r, fmt)}${T.foto_produk ? (await gallery(fotos, maxFoto) || '<div class="gal n1" style="background:var(--l);border-radius:16px"></div>') : ''}</main>

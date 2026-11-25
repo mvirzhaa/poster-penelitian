@@ -39,7 +39,7 @@ async function sinkron(r, renderRow, base) {
     const out = await renderRow(r, 'share', 'png', null);
     const fd = new FormData();
     const set = (k, v) => fd.append(k, v == null ? '' : String(v));
-    set('slug', r.slug); set('judul', r.judul); set('subjudul', r.subjudul); set('tahun', r.tahun);
+    set('slug', r.slug); set('judul', r.judul); set('subjudul', ''); set('tahun', r.tahun);
     set('peneliti', bersihkanNama(r.peneliti_nama)); set('anggota', anggotaPeneliti(r).map(a => bersihkanNama(a.nama)).join(', '));
     set('ringkasan', r.abstrak);
     set('prodi', r.prodi_nama || '');

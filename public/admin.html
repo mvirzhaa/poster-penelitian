@@ -9,7 +9,7 @@
 </div>
 <script src="assets/app.js"></script>
 <script>
-const TABS = [['pengguna', 'Pengguna'], ['prodi', 'Prodi'], ['kunci', 'Kunci API'], ['webhook', 'Webhook & log']];
+const TABS = [['pengguna', 'Pengguna'], ['prodi', 'Prodi'], ['biaya', 'Komponen biaya'], ['kunci', 'Kunci API'], ['webhook', 'Webhook & log']];
 let prodi = [], tab = location.hash.slice(1) || 'pengguna';
 const opsiProdi = (sel, semua) => (semua ? `<option value="">${semua}</option>` : '') + prodi.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? 'selected' : ''}>${esc(p.nama)}</option>`).join('');
 const J = (m, b) => jsonOpt(m, b);
@@ -77,6 +77,30 @@ async function vProdi() {
   $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus prodi ini? (hanya bisa jika belum dipakai data atau akun)', async () => { await api('/api/admin/prodi/' + b.dataset.d, { method: 'DELETE' }); vProdi(); }));
 }
 
+// ---------- Komponen biaya ----------
+let biayaJenis = 'skripsi';
+async function vBiaya() {
+  const d = await api('/api/admin/komponen-biaya');
+  const daftar = d.komponen.filter(k => k.jenis === biayaJenis);
+  const rp = n => 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID');
+  const totalTetap = daftar.filter(k => k.aktif && k.mode === 'tetap').reduce((a, k) => a + k.nominal, 0);
+  const formKomp = k => `<label>Nama komponen<input type="text" name="nama" value="${esc(k?.nama || '')}" required maxlength="120"></label>
+    <label>Pengisian nominal<select name="mode"><option value="tetap" ${k?.mode !== 'bebas' ? 'selected' : ''}>Tetap (mengikuti angka di bawah)</option><option value="bebas" ${k?.mode === 'bebas' ? 'selected' : ''}>Bebas (diisi pengguna; angka di bawah hanya contoh isian)</option></select></label>
+    <label>Nominal (Rp)<input type="text" inputmode="numeric" name="nominal" value="${k ? Math.round(k.nominal) : 0}"></label>
+    <div style="margin:8px 0"><b style="font-size:13px">Sumber dana tercentang otomatis</b> <span class="sub">(pengguna tetap bisa memilih ketiganya)</span><div>${d.sumber_dana.map(s => `<label style="display:inline-flex;gap:5px;align-items:center;margin-right:14px;font-weight:400"><input type="checkbox" name="sumber" value="${esc(s)}" ${(k?.sumber || [d.sumber_dana[0]]).includes(s) ? 'checked' : ''} style="width:auto;margin:0"> ${esc(s)}</label>`).join('')}</div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" name="aktif" ${k?.aktif !== false ? 'checked' : ''} style="width:auto;margin:0"> Aktif (tampil di formulir)</label>`;
+  const baca = (f, jenis) => ({ jenis, nama: f.nama.value, mode: f.mode.value, nominal: f.nominal.value, sumber: [...f.querySelectorAll('input[name=sumber]:checked')].map(i => i.value), aktif: f.aktif.checked });
+  $('#v').innerHTML = `<div class="note" style="margin-bottom:14px">Atur komponen biaya untuk tiap jenis penelitian. <b>Tetap</b>: nominal otomatis sesuai angka yang Anda tetapkan. <b>Bebas</b>: pengguna mengisi sendiri. Total dijumlahkan otomatis; poster hanya menampilkan total. Perubahan berlaku untuk poster yang disimpan setelahnya; poster lama tidak berubah sampai diedit dan disimpan ulang.</div>
+  <div class="tabs2" id="tj" style="margin-bottom:12px">${d.jenis.map(j => `<button data-j="${j.k}" class="${j.k === biayaJenis ? 'on' : ''}">${esc(j.label)}</button>`).join('')}</div>
+  <p style="margin:0 0 8px"><button class="btn pri sm" id="tbKomp">+ Tambah komponen</button> <span class="sub">Total komponen tetap aktif: <b>${rp(totalTetap)}</b></span></p>
+  <table class="tbl"><thead><tr><th>Komponen</th><th>Sumber dana bawaan</th><th>Mode</th><th class="r" style="text-align:right">Nominal</th><th></th></tr></thead><tbody>${daftar.map((k, i) => `<tr style="${k.aktif ? '' : 'opacity:.5'}"><td><b>${esc(k.nama)}</b>${k.aktif ? '' : ' <span class="chip off">nonaktif</span>'}</td><td class="sub">${esc(k.sumber.join(', '))}</td><td><span class="chip ${k.mode === 'tetap' ? 'ok' : 'warn'}">${k.mode === 'tetap' ? 'Tetap' : 'Bebas'}</span></td><td style="text-align:right">${rp(k.nominal)}${k.mode === 'bebas' ? '<div class="sub">contoh</div>' : ''}</td><td class="act"><button class="btn sm" data-u="${k.id}" ${i === 0 ? 'disabled' : ''}>▲</button><button class="btn sm" data-b="${k.id}" ${i === daftar.length - 1 ? 'disabled' : ''}>▼</button><button class="btn sm" data-e="${k.id}">Edit</button><button class="btn sm danger" data-d="${k.id}">Hapus</button></td></tr>`).join('') || '<tr><td colspan="5" class="sub">Belum ada komponen.</td></tr>'}</tbody></table>`;
+  $$('#tj button').forEach(b => b.onclick = () => { biayaJenis = b.dataset.j; vBiaya(); });
+  $('#tbKomp').onclick = () => modal('Tambah komponen', formKomp(null), 'Simpan', async f => { await api('/api/admin/komponen-biaya', J('POST', baca(f, biayaJenis))); vBiaya(); });
+  $$('[data-e]').forEach(b => b.onclick = () => { const k = d.komponen.find(x => x.id == b.dataset.e); modal('Edit komponen', formKomp(k), 'Simpan', async f => { await api('/api/admin/komponen-biaya/' + k.id, J('PUT', baca(f, k.jenis))); vBiaya(); }); });
+  $$('[data-u],[data-b]').forEach(b => b.onclick = async () => { await api(`/api/admin/komponen-biaya/${b.dataset.u || b.dataset.b}/geser`, J('POST', { arah: b.dataset.u ? 'atas' : 'bawah' })); vBiaya(); });
+  $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus komponen ini? (Poster lama tetap menyimpan rinciannya sendiri.)', async () => { await api('/api/admin/komponen-biaya/' + b.dataset.d, { method: 'DELETE' }); vBiaya(); }));
+}
+
 // ---------- Kunci API ----------
 async function vKunci() {
   const rows = await api('/api/admin/kunci');
@@ -103,7 +127,7 @@ async function vWebhook() {
   $$('[data-d]').forEach(b => b.onclick = () => konfirm('Hapus tujuan ini?', async () => { await api('/api/admin/webhook/' + b.dataset.d, { method: 'DELETE' }); vWebhook(); }));
 }
 
-const VIEWS = { pengguna: vPengguna, prodi: vProdi, kunci: vKunci, webhook: vWebhook };
+const VIEWS = { pengguna: vPengguna, prodi: vProdi, biaya: vBiaya, kunci: vKunci, webhook: vWebhook };
 async function tampil(t) {
   tab = VIEWS[t] ? t : 'pengguna'; location.hash = tab;
   $('#tabs').innerHTML = TABS.map(([k, n]) => `<button data-k="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('');

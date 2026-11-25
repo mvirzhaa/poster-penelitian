@@ -51,7 +51,7 @@ module.exports = function (app, wrap, { getFull, renderRow, baseOf }) {
     const sejak = req.query.sejak ? new Date(String(req.query.sejak)) : null;
     if (sejak && isNaN(sejak)) throw httpError(400, 'Parameter "sejak" harus berupa tanggal ISO, mis. 2026-11-01T00:00:00Z');
     const { rows } = await pool.query(`
-      SELECT p.slug, p.judul, p.subjudul, p.tahun, p.peneliti_nama, p.anggota_peneliti, p.updated_at, pr.kode AS prodi_kode, pr.nama AS prodi_nama,
+      SELECT p.slug, p.judul, p.tahun, p.peneliti_nama, p.anggota_peneliti, p.updated_at, pr.kode AS prodi_kode, pr.nama AS prodi_nama,
              count(*) OVER() AS total
       FROM penelitian p LEFT JOIN prodi pr ON pr.id=p.prodi_id
       WHERE ($1::int IS NULL OR p.prodi_id=$1)
@@ -63,7 +63,7 @@ module.exports = function (app, wrap, { getFull, renderRow, baseOf }) {
     res.json({
       total: rows[0] ? Number(rows[0].total) : 0, halaman: page, per_halaman: limit,
       data: rows.map(({ total, ...x }) => ({
-        slug: x.slug, judul: x.judul, subjudul: x.subjudul, tahun: x.tahun, peneliti: x.peneliti_nama,
+        slug: x.slug, judul: x.judul, tahun: x.tahun, peneliti: x.peneliti_nama,
         anggota_peneliti: anggotaPeneliti(x).map(a => bersihkanNama(a.nama)),
         prodi: x.prodi_kode ? { kode: x.prodi_kode, nama: x.prodi_nama } : null,
         diperbarui: x.updated_at, halaman: `${base}/p/${x.slug}`, poster: wh.posterUrls(base, x.slug),
@@ -76,7 +76,7 @@ module.exports = function (app, wrap, { getFull, renderRow, baseOf }) {
     res.json({
       ...wh.ringkasData(row, baseOf(req)),
       isi: {
-        abstrak: row.abstrak, anggaran: row.anggaran, sumber_anggaran: row.sumber_anggaran,
+        abstrak: row.abstrak, biaya: row.biaya, anggaran: row.anggaran, sumber_anggaran: row.sumber_anggaran,
         output_penelitian: row.output_penelitian, tampil: require('./tampil').petaTampil(row.tampil), ucapan: row.ucapan, kontak: row.kontak,
       },
     });

@@ -1,6 +1,6 @@
 # Poster Penelitian
 
-Aplikasi untuk **staf TU prodi**: isi formulir data penelitian (judul, peneliti utama, anggota peneliti, foto peneliti, foto produk, abstrak, anggaran, sumber anggaran, output penelitian) lalu hasilkan poster dalam tiga bentuk:
+Aplikasi untuk **staf TU prodi**: isi formulir data penelitian (judul, peneliti utama, anggota peneliti, foto peneliti, foto produk, abstrak, jenis penelitian & komponen biaya, output penelitian) lalu hasilkan poster dalam tiga bentuk:
 
 | Format | Ukuran | Keluaran |
 |---|---|---|
@@ -77,7 +77,7 @@ Buka http://localhost:3000
 - Baris yang diawali `- ` menjadi poin. Satu baris baru = pindah baris.
 - Teks yang terlalu panjang diperkecil otomatis (sampai ±50%); halaman poster menampilkan peringatan bila terlalu kecil/meluap. Penghitung karakter di formulir adalah anjuran.
 - Maksimal 8 foto kegiatan; foto pertama menjadi foto utama pada gambar “Bagikan”. Foto diperkecil dan dirotasi otomatis (EXIF) saat diunggah.
-- Urutan isi poster: identitas peneliti (+ QR di baris yang sama) → abstrak → foto produk → penutup (anggaran, sumber anggaran, output penelitian, logo APT Unggul di kanan bawah sebelum sponsor).
+- Urutan isi poster: identitas peneliti (+ QR di baris yang sama) → abstrak → foto produk → penutup (total anggaran, output penelitian, logo APT Unggul di kanan bawah sebelum sponsor).
 - Hasil render disimpan di `cache/` dan dibuat ulang otomatis saat data diubah.
 
 ## Struktur
@@ -129,7 +129,7 @@ Aplikasi ini terhubung ke **Journey** lewat API (`JOURNEY_API_URL` + `JOURNEY_AP
 
 ## Elemen poster yang ditampilkan
 
-Di form (bagian 6) setiap elemen isi poster punya kotak centang tampil/sembunyi, berlaku untuk A2, X-banner, dan share: logo mitra, institusi & unit, tahun, sponsor, sub-judul, foto peneliti, peneliti utama, anggota, QR, abstrak, foto produk, anggaran, sumber anggaran, output, ucapan terima kasih, kontak, dan logo APT Unggul. Judul dan logo UIKA selalu tampil. Bawaan: semua tampil **kecuali sumber anggaran**; judul bagian (mis. "Sumber Anggaran") ikut hilang bila elemennya disembunyikan. Daftar elemen ada di `src/tampil.js`.
+Di form (bagian 8) setiap elemen isi poster punya kotak centang tampil/sembunyi, berlaku untuk A2, X-banner, dan share: tahun, sponsor, foto peneliti, peneliti utama, anggota, QR, abstrak, foto produk, total anggaran, sumber anggaran, output, ucapan terima kasih, kontak, dan logo APT Unggul. Judul dan logo UIKA selalu tampil. Bawaan: semua tampil **kecuali sumber anggaran**; judul bagian (mis. "Sumber Anggaran") ikut hilang bila elemennya disembunyikan. Daftar elemen ada di `src/tampil.js`.
 
 ## Peneliti utama dari Journey
 
@@ -138,3 +138,12 @@ Nama peneliti utama juga bisa dipilih dari daftar dosen Journey (ketik lalu pili
 ## Hak ubah poster
 
 Staf TU melihat seluruh poster di prodinya, tetapi hanya **pembuat** poster yang dapat membuka form edit, mengubah, menghapus, mengirim ke webhook, atau menyinkronkan ke Journey. Dicek di server (menembak URL `/form.html?slug=...` atau API langsung dijawab 403), dan tombol Edit/Hapus disembunyikan untuk poster orang lain. Admin tetap dapat mengelola semua poster.
+
+
+## Jenis penelitian & komponen biaya
+- Di formulir, pengguna **memilih jenis penelitian lebih dulu**: Skripsi, Thesis, Desertasi, Penelitian Dosen Mandiri, atau Join Research. Setelah itu baru isian lain muncul.
+- Tiap jenis punya daftar komponen biaya (tabel `komponen_biaya`). Tiap komponen punya: nama, sumber dana yang boleh dipilih (Mandiri / Hibah Internal / Hibah External, boleh lebih dari satu), nominal, dan mode **Tetap** (nominal otomatis dari angka admin, tidak bisa diubah pengguna) atau **Bebas** (diisi pengguna; angka admin hanya contoh isian).
+- Isian awal: Skripsi/Thesis/Desertasi memakai SPP, SKS, Kolokium/Seminar, Sidang, Publikasi, Operasional Penelitian, dan Intangible Bimbingan (S1 1,5 jt / S2 5 jt / S3 10 jt); Dosen Mandiri dan Join Research memakai Publikasi, Operasional Penelitian, dan Intangible Penelitian dengan nominal bebas.
+- Total dihitung otomatis di server (nominal komponen "tetap" selalu diambil dari database, bukan dari kiriman klien). Poster, X-banner, dan share hanya menampilkan **total**.
+- Admin mengatur komponen di **Admin → Komponen biaya** (tambah, ubah, urutkan, nonaktifkan, hapus). Perubahan berlaku untuk poster yang disimpan sesudahnya; poster lama menyimpan salinan rinciannya sendiri.
+- Isian subjudul, institusi, unit, dan logo institusi sudah dihapus dari formulir dan poster.

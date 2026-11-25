@@ -26,12 +26,13 @@ const INTERNAL = `http://127.0.0.1:${PORT}`;
 const baseOf = req => PUBLIC_BASE || `${req.protocol}://${req.get('host')}`;
 const baseFallback = () => PUBLIC_BASE || INTERNAL;
 
-const TEXT_FIELDS = ['judul', 'subjudul', 'institusi', 'unit', 'tahun', 'peneliti_nama', 'peneliti_ref', 'peneliti_info',
+const TEXT_FIELDS = ['judul', 'tahun', 'peneliti_nama', 'peneliti_ref', 'peneliti_info',
   'abstrak', 'anggaran', 'sumber_anggaran', 'ucapan', 'kontak', 'url_qr', 'tema'];
 const { ELEMEN, bacaTampil, petaTampil } = require('./tampil');
-const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian', 'tampil'];   // disimpan sebagai JSONB
-const FIELDS = [...TEXT_FIELDS, ...JSON_FIELDS];
-const MAX_LEN = { judul: 300, subjudul: 300, abstrak: 2500, anggaran: 80, sumber_anggaran: 150, ucapan: 1000, kontak: 500, url_qr: 500 };
+const JSON_FIELDS = ['anggota_peneliti', 'output_penelitian', 'tampil', 'biaya'];   // disimpan sebagai JSONB
+const FIELDS = [...TEXT_FIELDS, 'jenis_penelitian', 'total_biaya', ...JSON_FIELDS];
+const biayaLib = require('./biaya');
+const MAX_LEN = { judul: 300, abstrak: 2500, anggaran: 80, sumber_anggaran: 150, ucapan: 1000, kontak: 500, url_qr: 500 };
 const MAX_ANGGOTA = 5;
 const OUTPUT_PENELITIAN = ['Scopus Q1', 'Scopus Q2', 'Scopus Q3', 'Scopus Q4', 'Sinta 1', 'Sinta 2', 'Sinta 3', 'Sinta 4',
   'Seminar Internasional', 'Seminar Nasional', 'Paten Sederhana', 'HKI', 'Buku', 'Teknologi Purwarupa', 'Kebijakan', 'Karya Monumental'];
@@ -88,7 +89,7 @@ router.get('/api/tema', A.requireLogin, (req, res) => res.json(Object.entries(TH
 
 // ---------- Unggah foto ----------
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 12 } })
-  .fields([{ name: 'foto_peneliti', maxCount: 1 }, { name: 'logo', maxCount: 1 }, { name: 'foto_kegiatan', maxCount: MAX_FOTO }]);
+  .fields([{ name: 'foto_peneliti', maxCount: 1 }, { name: 'foto_kegiatan', maxCount: MAX_FOTO }]);
 
 async function saveImage(file, jenis, { max = 3200, png = false, square = 0 } = {}) {
   const buf = file.buffer, syarat = SYARAT_FOTO[jenis];
@@ -131,11 +132,25 @@ function readFields(body) {
   const tp = bacaTampil(body);
   out.tampil = tp ? JSON.stringify(tp) : undefined;   // undefined = tidak dikirim (insert -> bawaan, update -> tidak diubah)
   if (!/^[A-Za-z0-9_.-]{1,150}$/.test(out.peneliti_ref)) out.peneliti_ref = '';
+  out.jenis_penelitian = undefined; out.total_biaya = undefined; out.biaya = undefined;   // diisi oleh terapkanBiaya()
   if (!out.judul) throw httpError(400, 'Judul penelitian wajib diisi.');
   if (!out.peneliti_nama) throw httpError(400, 'Nama peneliti wajib diisi.');
   if (!THEMES[out.tema]) out.tema = 'biru';
   if (out.url_qr && !/^https?:\/\//i.test(out.url_qr)) out.url_qr = 'https://' + out.url_qr;
   return out;
+}
+
+// Hitung biaya dari jenis penelitian + komponen (nominal 'tetap' dari admin). Tanpa jenis: isian lama (anggaran teks) dipertahankan.
+async function terapkanBiaya(f, body, cur) {
+  const h = await biayaLib.hitungBiaya(body, { wajibJenis: !cur || !cur.jenis_penelitian && !cur.anggaran });
+  if (!h) {
+    f.jenis_penelitian = cur ? cur.jenis_penelitian : ''; f.biaya = JSON.stringify(cur ? cur.biaya : []); f.total_biaya = cur ? cur.total_biaya : 0;
+    if (cur) { f.anggaran = cur.anggaran; f.sumber_anggaran = cur.sumber_anggaran; }
+    return;
+  }
+  f.jenis_penelitian = h.jenis; f.biaya = JSON.stringify(h.biaya); f.total_biaya = h.total; f.anggaran = h.anggaran;
+  const sumber = [...new Set(h.biaya.flatMap(b => b.sumber))];
+  f.sumber_anggaran = sumber.join(', ');
 }
 
 async function getFull(slug) {
@@ -224,6 +239,7 @@ router.get('/api/penelitian/:slug', wrap(async (req, res) => res.json(await getO
 
 router.post('/api/penelitian', upload, wrap(async (req, res) => {
   const f = readFields(req.body);
+  await terapkanBiaya(f, req.body, null);
   if (f.tampil === undefined) f.tampil = JSON.stringify(petaTampil({}));
   const prodiId = await resolveProdi(req);
   const files = req.files || {};
@@ -233,10 +249,8 @@ router.post('/api/penelitian', upload, wrap(async (req, res) => {
   try {
     const fotoPeneliti = files.foto_peneliti?.[0] ? await saveImage(files.foto_peneliti[0], 'peneliti', { square: 1200 }) : null;
     if (fotoPeneliti) saved.push(fotoPeneliti);
-    const logo = files.logo?.[0] ? await saveImage(files.logo[0], 'logo', { max: 1200, png: true }) : null;
-    if (logo) saved.push(logo);
-    const cols = [...FIELDS, 'slug', 'foto_peneliti', 'logo', 'prodi_id', 'dibuat_oleh', 'diubah_oleh'];
-    const vals = [...FIELDS.map(k => f[k]), slug, fotoPeneliti, logo, prodiId, req.user.id, req.user.id];
+    const cols = [...FIELDS, 'slug', 'foto_peneliti', 'prodi_id', 'dibuat_oleh', 'diubah_oleh'];
+    const vals = [...FIELDS.map(k => f[k]), slug, fotoPeneliti, prodiId, req.user.id, req.user.id];
     await client.query('BEGIN');
     const ins = await client.query(
       `INSERT INTO penelitian (${cols.join(',')}) VALUES (${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING id`, vals);
@@ -263,27 +277,24 @@ router.post('/api/penelitian', upload, wrap(async (req, res) => {
 router.put('/api/penelitian/:slug', upload, wrap(async (req, res) => {
   const cur = await getOwned(req);
   const f = readFields(req.body);
+  await terapkanBiaya(f, req.body, cur);
   if (f.tampil === undefined) f.tampil = JSON.stringify(petaTampil(cur.tampil));
   const prodiId = req.user.peran === 'admin' ? await resolveProdi(req) : cur.prodi_id;
   const files = req.files || {};
   const newFiles = [], oldToRemove = [];
   const client = await pool.connect();
   try {
-    let fotoPeneliti = cur.foto_peneliti, logo = cur.logo;
+    let fotoPeneliti = cur.foto_peneliti;
     if (files.foto_peneliti?.[0]) {
       fotoPeneliti = await saveImage(files.foto_peneliti[0], 'peneliti', { square: 1200 });
       newFiles.push(fotoPeneliti); oldToRemove.push(cur.foto_peneliti);
     } else if (req.body.hapus_foto_peneliti) { fotoPeneliti = null; oldToRemove.push(cur.foto_peneliti); }
-    if (files.logo?.[0]) {
-      logo = await saveImage(files.logo[0], 'logo', { max: 1200, png: true });
-      newFiles.push(logo); oldToRemove.push(cur.logo);
-    } else if (req.body.hapus_logo) { logo = null; oldToRemove.push(cur.logo); }
 
     await client.query('BEGIN');
-    const sets = [...FIELDS, 'foto_peneliti', 'logo', 'prodi_id', 'diubah_oleh'];
+    const sets = [...FIELDS, 'foto_peneliti', 'prodi_id', 'diubah_oleh'];
     await client.query(
       `UPDATE penelitian SET ${sets.map((k, i) => `${k}=$${i + 1}`).join(',')}, updated_at=now() WHERE id=$${sets.length + 1}`,
-      [...FIELDS.map(k => f[k]), fotoPeneliti, logo, prodiId, req.user.id, cur.id]);
+      [...FIELDS.map(k => f[k]), fotoPeneliti, prodiId, req.user.id, cur.id]);
 
     const hapus = new Set(arr(req.body.hapus_foto).map(Number));
     for (const ft of cur.foto) {
@@ -396,7 +407,12 @@ router.post('/api/penelitian/:slug/kirim', wrap(async (req, res) => {
 }));
 
 // Opsi isian untuk form (output penelitian, batas anggota)
-router.get('/api/opsi', A.requireLogin, (req, res) => res.json({ output_penelitian: OUTPUT_PENELITIAN, maks_anggota: MAX_ANGGOTA, elemen: ELEMEN }));
+router.get('/api/opsi', A.requireLogin, (req, res) => res.json({ output_penelitian: OUTPUT_PENELITIAN, maks_anggota: MAX_ANGGOTA, elemen: ELEMEN, jenis_penelitian: biayaLib.JENIS, sumber_dana: biayaLib.SUMBER }));
+// Komponen biaya per jenis penelitian (yang aktif) untuk formulir.
+router.get('/api/komponen-biaya/:jenis', A.requireLogin, wrap(async (req, res) => {
+  if (!biayaLib.JENIS_KEYS.includes(req.params.jenis)) throw httpError(404, 'Jenis penelitian tidak dikenal.');
+  res.json((await biayaLib.komponenJenis(req.params.jenis)).map(({ id, nama, nominal, mode, sumber }) => ({ id, nama, nominal, mode, sumber })));
+}));
 
 // ---------- Integrasi Journey ----------
 // Cari dosen di database Journey untuk kolom pembimbing (pembimbing luar UIKA tetap boleh diketik manual).

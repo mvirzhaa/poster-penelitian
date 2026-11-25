@@ -4,7 +4,7 @@ const { ELEMEN, KEYS, petaTampil, bacaTampil } = require('../src/tampil');
 
 test('ELEMEN and KEYS definition', () => {
   assert.ok(Array.isArray(ELEMEN));
-  assert.ok(ELEMEN.length >= 17);
+  assert.ok(ELEMEN.length >= 14);
   assert.ok(KEYS.includes('sumber_anggaran'));
   assert.ok(KEYS.includes('abstrak'));
   assert.ok(KEYS.includes('logo_apt'));

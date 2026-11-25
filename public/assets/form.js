@@ -115,6 +115,7 @@ async function init() {
     $('#selProdi').required = true;
   }
   if (!slug) { addRow(); await muatOpsi(); await muatSponsor(); return; }
+  $('#isiForm').hidden = false;
   $('#ttl').textContent = 'Edit data penelitian';
   const r = await api('/api/penelitian/' + slug).catch(e => { setMsg(e.message, 'err'); return null; });
   if (!r) return;
@@ -128,10 +129,14 @@ async function init() {
     box.innerHTML = `<img class="${round ? 'round' : ''}" src="${u('/uploads/' + esc(file))}"><label><input type="checkbox" name="${round ? 'hapus_foto_peneliti' : 'hapus_logo'}" value="1"> hapus</label>`;
     box.dataset.old = box.innerHTML;
   };
-  withDel('pvFoto', r.foto_peneliti, true); withDel('pvLogo', r.logo, false);
+  withDel('pvFoto', r.foto_peneliti, true);
   sponsorTerpilih = Object.fromEntries((r.sponsor || []).map(x => [x.id, x.posisi]));
   pilihUtama = r.peneliti_ref ? r.peneliti_nama : ''; hintUtama();
   await muatOpsi(r.output_penelitian || [], r.tampil);
+  if (r.jenis_penelitian) {
+    const rd = form.querySelector(`input[name=jenis_penelitian][value="${r.jenis_penelitian}"]`);
+    if (rd) { rd.checked = true; await muatBiaya(r.jenis_penelitian, r.biaya || []); }
+  } else if (r.anggaran) { $('#biayaBody').innerHTML = `<tr><td colspan="3" class="h">Data lama memakai anggaran teks (${esc(r.anggaran)}). Pilih jenis penelitian di atas untuk mengganti dengan komponen biaya.</td></tr>`; }
   (r.anggota_peneliti || []).forEach(a => tambahAnggota(a.nama, a.ref));
   await muatSponsor();
   existing = r.foto; r.foto.forEach(addExisting);
@@ -144,6 +149,7 @@ form.addEventListener('submit', async e => {
   if ($$('.hint[data-ok="0"]').length) { setMsg('Ada foto yang resolusinya terlalu kecil. Ganti dengan foto ukuran asli (lihat pesan merah).', 'err'); return; }
   const fd = new FormData(form);
   fd.append('anggota_peneliti', JSON.stringify(dataAnggota()));
+  fd.append('biaya', JSON.stringify(dataBiaya()));
   fotos.querySelectorAll('.foto.baru').forEach(row => {
     const f = row.querySelector('input[type=file]').files[0];
     if (f) { fd.append('foto_kegiatan', f); fd.append('ket_baru', row.querySelector('input[type=text]').value); }
@@ -252,6 +258,11 @@ async function muatOpsi(terpilih = [], tampil = null) {
   try {
     const o = await api('/api/opsi');
     MAKS_ANGGOTA = o.maks_anggota || 5;
+    if (o.sumber_dana?.length) SUMBER_DANA = o.sumber_dana;
+    if (!$('#jenisList').children.length) {
+      $('#jenisList').innerHTML = (o.jenis_penelitian || []).map((j, i) => `<label><input type="radio" name="jenis_penelitian" value="${esc(j.k)}" required> ${i + 1}. ${esc(j.label)}</label>`).join('');
+      $$('#jenisList input').forEach(rd => rd.onchange = async () => { $('#isiForm').hidden = false; await muatBiaya(rd.value, dataBiaya(true)); });
+    }
     $('#outList').innerHTML = o.output_penelitian.map(x =>
       `<label class="chk"><input type="checkbox" name="output_penelitian" value="${esc(x)}"${terpilih.includes(x) ? ' checked' : ''}> ${esc(x)}</label>`).join('');
     // penanda dikirim hanya bila daftar centang benar-benar tampil (mencegah semua elemen tersimpan 'tidak tampil')
@@ -262,4 +273,40 @@ async function muatOpsi(terpilih = [], tampil = null) {
     }).join('');
     sinkronCnt();
   } catch { /* diabaikan */ }
+}
+
+// ---------- Anggaran: komponen per jenis penelitian, total otomatis ----------
+const rp = n => 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID');
+let komponenAktif = [], SUMBER_DANA = ['Mandiri', 'Hibah Internal', 'Hibah External'];
+async function muatBiaya(jenis, carry = []) {
+  const kunci = x => String(x.nama || '').toLowerCase();
+  const peta = new Map(carry.map(c => [kunci(c), c]));
+  komponenAktif = await api('/api/komponen-biaya/' + encodeURIComponent(jenis));
+  const body = $('#biayaBody');
+  if (!komponenAktif.length) { body.innerHTML = '<tr><td colspan="3" class="h">Belum ada komponen biaya untuk jenis ini (diatur admin).</td></tr>'; hitungTotal(); return; }
+  body.innerHTML = komponenAktif.map(k => {
+    const c = peta.get(kunci(k));
+    let dipilih = c && Array.isArray(c.sumber) ? c.sumber : [];
+    if (!dipilih.length) dipilih = k.sumber;
+    const src = SUMBER_DANA.map(s => `<label><input type="checkbox" value="${esc(s)}"${dipilih.includes(s) ? ' checked' : ''}> ${esc(s)}</label>`).join('');
+    const nom = k.mode === 'bebas'
+      ? `<input type="text" inputmode="numeric" class="nom" placeholder="${esc(Math.round(k.nominal).toLocaleString('id-ID'))}" value="${c && c.nominal ? Math.round(c.nominal).toLocaleString('id-ID') : ''}">`
+      : `<span class="tetap">${rp(k.nominal)}</span>`;
+    return `<tr data-id="${k.id}" data-mode="${k.mode}" data-nom="${k.nominal}"><td>${esc(k.nama)}${k.mode === 'bebas' ? ' <span class="h">(isi sendiri)</span>' : ''}</td><td class="src">${src}</td><td class="r">${nom}</td></tr>`;
+  }).join('');
+  body.querySelectorAll('input.nom').forEach(i => i.addEventListener('input', () => { const n = bacaNominal(i.value); i.value = n ? n.toLocaleString('id-ID') : ''; hitungTotal(); }));
+  hitungTotal();
+}
+function bacaNominal(v) { return Math.max(0, parseInt(String(v || '').replace(/\D/g, ''), 10) || 0); }
+function hitungTotal() {
+  let t = 0;
+  $$('#biayaBody tr[data-id]').forEach(tr => { t += tr.dataset.mode === 'bebas' ? bacaNominal(tr.querySelector('input.nom').value) : Number(tr.dataset.nom); });
+  $('#biayaTotal').textContent = rp(t);
+}
+function dataBiaya(untukBawa = false) {
+  return $$('#biayaBody tr[data-id]').map(tr => {
+    const k = komponenAktif.find(x => x.id === Number(tr.dataset.id));
+    return { id: Number(tr.dataset.id), nama: k ? k.nama : '', sumber: [...tr.querySelectorAll('.src input:checked')].map(i => i.value),
+      nominal: tr.dataset.mode === 'bebas' ? bacaNominal(tr.querySelector('input.nom').value) : Number(tr.dataset.nom) };
+  });
 }

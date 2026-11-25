@@ -159,3 +159,45 @@ ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS peneliti_ref TEXT NOT NULL DEFAU
 -- Perbaikan: data yang tersimpan dengan SEMUA elemen "tidak tampil" (akibat form lama/cache browser) dikembalikan ke bawaan.
 UPDATE penelitian SET tampil = '{}', updated_at = now()
  WHERE tampil <> '{}'::jsonb AND NOT EXISTS (SELECT 1 FROM jsonb_each(tampil) e WHERE e.value = 'true'::jsonb);
+
+-- ===== Jenis penelitian & komponen biaya (diatur admin) =====
+-- mode 'tetap' = nominal mengikuti angka yang ditetapkan admin; 'bebas' = nominal diisi pengguna (nominal di sini hanya saran/isian awal).
+CREATE TABLE IF NOT EXISTS komponen_biaya (
+  id       SERIAL PRIMARY KEY,
+  jenis    TEXT NOT NULL CHECK (jenis IN ('skripsi','thesis','desertasi','dosen_mandiri','join_research')),
+  nama     TEXT NOT NULL,
+  nominal  BIGINT NOT NULL DEFAULT 0 CHECK (nominal >= 0),
+  mode     TEXT NOT NULL DEFAULT 'tetap' CHECK (mode IN ('tetap','bebas')),
+  sumber   JSONB NOT NULL DEFAULT '[]',     -- pilihan sumber dana: Mandiri / Hibah Internal / Hibah External
+  urutan   INT NOT NULL DEFAULT 0,
+  aktif    BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE INDEX IF NOT EXISTS idx_komponen_biaya ON komponen_biaya(jenis, urutan);
+
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS jenis_penelitian TEXT   NOT NULL DEFAULT '';
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS biaya            JSONB  NOT NULL DEFAULT '[]';   -- [{nama, nominal, sumber:[...]}] (salinan saat disimpan)
+ALTER TABLE penelitian ADD COLUMN IF NOT EXISTS total_biaya      BIGINT NOT NULL DEFAULT 0;
+
+-- Isian awal komponen (hanya bila tabel masih kosong)
+INSERT INTO komponen_biaya (jenis,nama,nominal,mode,sumber,urutan)
+SELECT j.jenis, k.nama, CASE WHEN k.nama='Biaya Intangible Bimbingan' THEN j.intang ELSE k.nominal END, 'tetap', k.sumber::jsonb, k.urutan
+FROM (VALUES ('skripsi',1500000),('thesis',5000000),('desertasi',10000000)) AS j(jenis,intang)
+CROSS JOIN (VALUES
+  ('SPP',2000000,'["Mandiri"]',1),
+  ('SKS',3500000,'["Mandiri"]',2),
+  ('Biaya Kolokium/Seminar',300000,'["Mandiri"]',3),
+  ('Biaya Sidang',1500000,'["Mandiri"]',4),
+  ('Biaya Publikasi',700000,'["Mandiri","Hibah Internal"]',5),
+  ('Operasional Penelitian',5000000,'["Mandiri","Hibah External"]',6),
+  ('Biaya Intangible Bimbingan',0,'["Hibah Internal"]',7)
+) AS k(nama,nominal,sumber,urutan)
+WHERE NOT EXISTS (SELECT 1 FROM komponen_biaya);
+INSERT INTO komponen_biaya (jenis,nama,nominal,mode,sumber,urutan)
+SELECT j.jenis, k.nama, k.nominal, 'bebas', k.sumber::jsonb, k.urutan
+FROM (VALUES ('dosen_mandiri'),('join_research')) AS j(jenis)
+CROSS JOIN (VALUES
+  ('Biaya Publikasi',8000000,'["Hibah External"]',1),
+  ('Operasional Penelitian',5000000,'["Mandiri","Hibah External"]',2),
+  ('Biaya Intangible Penelitian',1500000,'["Hibah Internal"]',3)
+) AS k(nama,nominal,sumber,urutan)
+WHERE NOT EXISTS (SELECT 1 FROM komponen_biaya WHERE jenis IN ('dosen_mandiri','join_research'));

@@ -3,6 +3,7 @@ const express = require('express');
 const { pool } = require('./db');
 const { hashSandi, sha, requireLogin, requireAdmin, httpError } = require('./auth');
 const wh = require('./webhooks');
+const B = require('./biaya');
 
 const randomPw = () => crypto.randomBytes(9).toString('base64url').replace(/[-_]/g, 'x').slice(0, 10);
 const intOrNull = v => (v === '' || v == null ? null : parseInt(v, 10));
@@ -144,6 +145,53 @@ module.exports = function (app, wrap) {
   r.get('/webhook-log', wrap(async (req, res) => {
     const { rows } = await pool.query(`SELECT l.*, w.nama AS webhook_nama FROM webhook_log l LEFT JOIN webhook w ON w.id=l.webhook_id ORDER BY l.waktu DESC LIMIT 40`);
     res.json(rows);
+  }));
+
+  // ----- Komponen biaya per jenis penelitian -----
+  const bacaKomponen = body => {
+    const jenis = String(body.jenis || '');
+    if (!B.JENIS_KEYS.includes(jenis)) throw httpError(400, 'Jenis penelitian tidak dikenal.');
+    const nama = String(body.nama || '').trim().slice(0, 120);
+    if (!nama) throw httpError(400, 'Nama komponen wajib diisi.');
+    const nominal = B.angka(body.nominal);
+    if (!Number.isFinite(nominal) || nominal < 0 || nominal > 1e12) throw httpError(400, 'Nominal harus berupa angka 0 atau lebih.');
+    const mode = body.mode === 'bebas' ? 'bebas' : 'tetap';
+    const sumber = B.SUMBER.filter(x => [].concat(body.sumber || []).includes(x));
+    if (!sumber.length) throw httpError(400, 'Pilih minimal satu sumber dana.');
+    return { jenis, nama, nominal, mode, sumber: JSON.stringify(sumber), aktif: body.aktif !== false && body.aktif !== 'false' };
+  };
+  r.get('/komponen-biaya', wrap(async (req, res) => {
+    const { rows } = await pool.query('SELECT id,jenis,nama,nominal::float8 AS nominal,mode,sumber,urutan,aktif FROM komponen_biaya ORDER BY jenis,urutan,id');
+    res.json({ jenis: B.JENIS, sumber_dana: B.SUMBER, komponen: rows });
+  }));
+  r.post('/komponen-biaya', wrap(async (req, res) => {
+    const k = bacaKomponen(req.body);
+    const { rows } = await pool.query(
+      `INSERT INTO komponen_biaya (jenis,nama,nominal,mode,sumber,aktif,urutan)
+       VALUES ($1,$2,$3,$4,$5,$6,(SELECT COALESCE(MAX(urutan),0)+1 FROM komponen_biaya WHERE jenis=$1)) RETURNING id`,
+      [k.jenis, k.nama, k.nominal, k.mode, k.sumber, k.aktif]);
+    res.status(201).json({ id: rows[0].id });
+  }));
+  r.put('/komponen-biaya/:id', wrap(async (req, res) => {
+    const k = bacaKomponen(req.body);
+    const { rowCount } = await pool.query('UPDATE komponen_biaya SET jenis=$1,nama=$2,nominal=$3,mode=$4,sumber=$5,aktif=$6 WHERE id=$7',
+      [k.jenis, k.nama, k.nominal, k.mode, k.sumber, k.aktif, req.params.id]);
+    if (!rowCount) throw httpError(404, 'Komponen tidak ditemukan.');
+    res.json({ ok: true });
+  }));
+  r.post('/komponen-biaya/:id/geser', wrap(async (req, res) => {
+    const arah = req.body.arah === 'atas' ? -1 : 1;
+    const { rows } = await pool.query('SELECT id,jenis FROM komponen_biaya WHERE id=$1', [req.params.id]);
+    if (!rows[0]) throw httpError(404, 'Komponen tidak ditemukan.');
+    const daftar = (await pool.query('SELECT id FROM komponen_biaya WHERE jenis=$1 ORDER BY urutan,id', [rows[0].jenis])).rows.map(x => x.id);
+    const i = daftar.indexOf(rows[0].id), j = i + arah;
+    if (j >= 0 && j < daftar.length) { [daftar[i], daftar[j]] = [daftar[j], daftar[i]]; }
+    for (let n = 0; n < daftar.length; n++) await pool.query('UPDATE komponen_biaya SET urutan=$1 WHERE id=$2', [n + 1, daftar[n]]);
+    res.json({ ok: true });
+  }));
+  r.delete('/komponen-biaya/:id', wrap(async (req, res) => {
+    await pool.query('DELETE FROM komponen_biaya WHERE id=$1', [req.params.id]);   // poster lama menyimpan salinan biayanya sendiri
+    res.json({ ok: true });
   }));
 
   app.use('/api/admin', r);
