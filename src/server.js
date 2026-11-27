@@ -191,8 +191,11 @@ async function segarkanPoster(sponsorId) {
   rows.forEach(r => clearCache(r.slug));
 }
 
-// ---------- Hak akses: staf TU hanya data prodinya; admin semua ----------
-const canAccess = (u, r) => u.peran === 'admin' || (r.prodi_id != null && r.prodi_id === u.prodi_id);
+// ---------- Hak akses: staf TU melihat data prodinya, buatan sendiri, atau di mana ia terlibat sebagai peneliti; admin semua ----------
+const canAccess = (u, r) => u.peran === 'admin'
+  || (r.prodi_id != null && r.prodi_id === u.prodi_id)
+  || (r.dibuat_oleh != null && r.dibuat_oleh === u.id)
+  || sso.isInvolvedResearcher(u, r);
 // Mengubah/menghapus/mengirim poster: hanya pembuatnya (admin tetap boleh mengelola semua).
 const canEdit = (u, r) => u.peran === 'admin' || (r.dibuat_oleh != null && r.dibuat_oleh === u.id);
 async function getOwned(req) {
@@ -219,6 +222,7 @@ router.use('/api/penelitian', A.requireLogin);
 router.get('/api/penelitian', wrap(async (req, res) => {
   const admin = req.user.peran === 'admin';
   const prodi = admin ? (parseInt(req.query.prodi, 10) || null) : (req.user.prodi_id || -1);
+  const { emailSlug, nama: namaPeneliti } = admin ? { emailSlug: '', nama: '' } : sso.userMatchParams(req.user);
   const q = String(req.query.q || '').trim();
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 12));
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -229,9 +233,26 @@ router.get('/api/penelitian', wrap(async (req, res) => {
       (SELECT count(*)::int FROM foto_penelitian f WHERE f.penelitian_id=p.id) AS jml_foto,
       count(*) OVER() AS total
     FROM penelitian p LEFT JOIN prodi pr ON pr.id=p.prodi_id LEFT JOIN pengguna u ON u.id=COALESCE(p.diubah_oleh,p.dibuat_oleh)
-    WHERE ($1::int IS NULL OR p.prodi_id=$1)
+    WHERE (
+        ($6::boolean AND ($1::int IS NULL OR p.prodi_id=$1))
+        OR (NOT $6::boolean AND (
+          ($1::int > 0 AND p.prodi_id=$1)
+          OR p.dibuat_oleh=$7::int
+          OR ($8::text <> '' AND (
+            p.peneliti_ref=$8::text OR p.peneliti_ref LIKE $8::text || '-%'
+            OR (jsonb_typeof(p.anggota_peneliti)='array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(p.anggota_peneliti) a WHERE a->>'ref'=$8::text OR a->>'ref' LIKE $8::text || '-%'
+            ))
+          ))
+          OR ($9::text <> '' AND (
+            p.peneliti_nama ILIKE '%' || $9::text || '%'
+            OR p.anggota_peneliti::text ILIKE '%' || $9::text || '%'
+          ))
+        ))
+      )
       AND ($2='' OR p.judul ILIKE $3 OR p.peneliti_nama ILIKE $3 OR p.anggota_peneliti::text ILIKE $3)
-    ORDER BY p.updated_at DESC LIMIT $4 OFFSET $5`, [prodi, q, `%${q}%`, limit, (page - 1) * limit]);
+    ORDER BY p.updated_at DESC LIMIT $4 OFFSET $5`,
+    [prodi, q, `%${q}%`, limit, (page - 1) * limit, admin, req.user.id, emailSlug, namaPeneliti]);
   res.json({ total: rows[0] ? Number(rows[0].total) : 0, halaman: page, per_halaman: limit, data: rows.map(({ total, dibuat_oleh, ...x }) => ({ ...x, bisa_ubah: canEdit(req.user, { dibuat_oleh }) })) });
 }));
 

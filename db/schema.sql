@@ -236,3 +236,26 @@ INSERT INTO prodi (kode,nama,fakultas) VALUES
   ('kesehatan-masyarakat','Kesehatan Masyarakat','Fakultas Ilmu Kesehatan (FIK)'),
   ('gizi','Gizi','Fakultas Ilmu Kesehatan (FIK)')
 ON CONFLICT (kode) DO UPDATE SET fakultas = CASE WHEN prodi.fakultas='' THEN EXCLUDED.fakultas ELSE prodi.fakultas END;
+
+-- Gabungkan duplikat prodi 'Teknik Informatika' (mis. dibuat otomatis oleh SSO dari E-Portal) ke prodi 'informatika'
+DO $$
+DECLARE
+  target_id INT;
+  dup RECORD;
+BEGIN
+  SELECT id INTO target_id FROM prodi WHERE kode = 'informatika' LIMIT 1;
+  IF target_id IS NOT NULL THEN
+    FOR dup IN
+      SELECT id FROM prodi
+      WHERE id <> target_id
+        AND (lower(kode) IN ('ft-ti', 'ft_ti', 'teknik-informatika') OR lower(nama) = 'teknik informatika')
+    LOOP
+      UPDATE pengguna SET prodi_id = target_id WHERE prodi_id = dup.id;
+      UPDATE penelitian SET prodi_id = target_id WHERE prodi_id = dup.id;
+      UPDATE sponsor SET prodi_id = target_id WHERE prodi_id = dup.id;
+      UPDATE kunci_api SET prodi_id = target_id WHERE prodi_id = dup.id;
+      UPDATE webhook SET prodi_id = target_id WHERE prodi_id = dup.id;
+      DELETE FROM prodi WHERE id = dup.id;
+    END LOOP;
+  END IF;
+END $$;

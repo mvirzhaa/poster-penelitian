@@ -41,6 +41,34 @@ const httpsAgent = new https.Agent({
   servername: TARGET_HOST,
 });
 
+// Pemetaan alias unit E-Portal (code / nama_unit) -> kode prodi di database
+const UNIT_PRODI_ALIASES = {
+  'ft_ti': 'informatika',
+  'ft-ti': 'informatika',
+  'teknik informatika': 'informatika',
+  'teknik-informatika': 'informatika',
+  'ft_ts': 'teknik-sipil',
+  'fts_ts': 'teknik-sipil',
+  'fts_tm': 'teknik-mesin',
+  'fts_te': 'teknik-elektro',
+  'fh_ih': 'ilmu-hukum',
+};
+
+function resolveAliasKode(unitName, unitCode) {
+  const codeKey = String(unitCode || '').trim().toLowerCase();
+  const nameKey = String(unitName || '').trim().toLowerCase();
+  return UNIT_PRODI_ALIASES[codeKey] || UNIT_PRODI_ALIASES[nameKey] || '';
+}
+
+function normalizeUnitName(unitName) {
+  return String(unitName || '')
+    .trim()
+    .replace(/^(program\s+studi|prodi|jurusan|teknik)\s+/i, '')
+    .replace(/\s*\([^)]*\)\s*/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * Mencari atau mendaftarkan prodi berdasarkan unit dari SSO.
  */
@@ -48,22 +76,37 @@ async function resolveProdiFromUnit(unitName, unitCode) {
   if (!unitName && !unitCode) return null;
   const nameStr = String(unitName || '').trim();
   const codeStr = String(unitCode || '').trim();
+  const aliasCode = resolveAliasKode(nameStr, codeStr);
+  const strippedName = normalizeUnitName(nameStr);
 
   try {
     const q = `
       SELECT id FROM prodi
-      WHERE (nama IS NOT NULL AND lower(nama) = lower($1))
-         OR (kode IS NOT NULL AND lower(kode) = lower($2))
-         OR ($1 <> '' AND nama IS NOT NULL AND lower(nama) LIKE '%' || lower($1) || '%')
-      ORDER BY (lower(nama) = lower($1)) DESC, (lower(kode) = lower($2)) DESC
+      WHERE (nama IS NOT NULL AND lower(nama) = lower($1::text))
+         OR (kode IS NOT NULL AND lower(kode) = lower($2::text))
+         OR ($3::text <> '' AND kode IS NOT NULL AND lower(kode) = lower($3::text))
+         OR ($4::text <> '' AND nama IS NOT NULL AND (
+              lower(nama) = $4::text
+              OR trim(regexp_replace(lower(nama), '\\s*\\([^)]*\\)', '', 'g')) = $4::text
+            ))
+         OR ($1::text <> '' AND nama IS NOT NULL AND length(nama) >= 4 AND (
+              lower(nama) LIKE '%' || lower($1::text) || '%'
+              OR lower($1::text) LIKE '%' || lower(nama) || '%'
+            ))
+      ORDER BY
+        ($3::text <> '' AND lower(kode) = lower($3::text)) DESC,
+        (lower(nama) = lower($1::text)) DESC,
+        (lower(kode) = lower($2::text)) DESC,
+        ($4::text <> '' AND lower(nama) = $4::text) DESC,
+        length(nama) DESC
       LIMIT 1
     `;
-    const { rows } = await pool.query(q, [nameStr, codeStr]);
+    const { rows } = await pool.query(q, [nameStr, codeStr, aliasCode, strippedName]);
     if (rows.length > 0) return rows[0].id;
 
     // Otomatis buat prodi baru jika belum terdaftar
     const namaProdi = nameStr || codeStr;
-    let kodeProdi = (codeStr || nameStr)
+    let kodeProdi = (aliasCode || codeStr || nameStr)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
@@ -257,4 +300,35 @@ function routes(router, wrap) {
   });
 }
 
-module.exports = { routes, introspectToken, syncSsoUser, resolveProdiFromUnit };
+/**
+ * Ekstrak parameter pencocokan peneliti (slug email Journey dan nama asli) dari akun login.
+ */
+function userMatchParams(u) {
+  if (!u) return { emailSlug: '', nama: '' };
+  const rawEmail = String(u.email || (u.username && u.username.includes('@') ? u.username : '') || '').trim().toLowerCase();
+  const emailSlug = rawEmail ? rawEmail.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
+  const rawNama = String(u.nama || '').trim();
+  const nama = (rawNama.length >= 5 && !rawNama.includes('@') && !/^(staf|admin|tu)\b/i.test(rawNama)) ? rawNama : '';
+  return { emailSlug, nama };
+}
+
+/**
+ * Cek apakah pengguna terdaftar sebagai peneliti utama atau anggota peneliti pada suatu poster.
+ */
+function isInvolvedResearcher(u, r) {
+  if (!u || !r) return false;
+  const { emailSlug, nama } = userMatchParams(u);
+  const anggota = Array.isArray(r.anggota_peneliti) ? r.anggota_peneliti : [];
+  if (emailSlug) {
+    const matchRef = ref => ref === emailSlug || String(ref || '').startsWith(emailSlug + '-');
+    if (matchRef(r.peneliti_ref) || anggota.some(a => matchRef(a?.ref))) return true;
+  }
+  if (nama) {
+    const low = nama.toLowerCase();
+    if (String(r.peneliti_nama || '').toLowerCase().includes(low)) return true;
+    if (anggota.some(a => String(a?.nama || '').toLowerCase().includes(low))) return true;
+  }
+  return false;
+}
+
+module.exports = { routes, introspectToken, syncSsoUser, resolveProdiFromUnit, resolveAliasKode, normalizeUnitName, userMatchParams, isInvolvedResearcher };

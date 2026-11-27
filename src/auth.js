@@ -51,7 +51,7 @@ async function loadUser(req, res, next) {
     const token = parseCookies(req).sid;
     if (token) {
       const { rows } = await pool.query(`
-        SELECT u.id, u.username, u.nama, u.peran, u.prodi_id, u.sandi_default, pr.nama AS prodi_nama, pr.kode AS prodi_kode
+        SELECT u.id, u.username, u.nama, u.peran, u.prodi_id, u.sandi_default, u.email, u.nidn, u.sso_id, pr.nama AS prodi_nama, pr.kode AS prodi_kode
         FROM sesi s JOIN pengguna u ON u.id=s.pengguna_id LEFT JOIN prodi pr ON pr.id=u.prodi_id
         WHERE s.token=$1 AND s.kedaluwarsa > now() AND u.aktif`, [sha(token)]);
       req.user = rows[0] || null;
